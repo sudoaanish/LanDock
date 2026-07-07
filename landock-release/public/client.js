@@ -455,7 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 type: 'clipboard_push',
                 text: text
             }));
-            showClipStatus('Pushed to PC');
+            showClipStatus('Pasted to PC');
         } else {
             showClipStatus('Disconnected', true);
         }
@@ -467,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Let's send a ping/pull command
         if (isConnected && socket.readyState === 1) {
             socket.send(JSON.stringify({ type: 'ping', time: Date.now() }));
-            showClipStatus('Refreshed');
+            showClipStatus('Copied from PC');
         } else {
             showClipStatus('Disconnected', true);
         }
