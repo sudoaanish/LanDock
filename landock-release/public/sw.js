@@ -5,7 +5,8 @@ const ASSETS = [
     'client.js',
     'manifest.json',
     'icon.png',
-    'icon-512.png'
+    'icon-512.png',
+    'logo.png'
 ];
 
 // Install Event
