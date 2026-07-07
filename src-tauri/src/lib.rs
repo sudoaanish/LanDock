@@ -24,10 +24,12 @@ pub fn run() {
       } else {
         println!("[Tauri] Starting background Node.js server...");
         
-        // Spawn node index.js from the parent directory relative to src-tauri
+        let resource_dir = app.path().resource_dir().expect("failed to get resource dir");
+        let index_js_path = resource_dir.join("index.js");
+
         let child = Command::new("node")
-          .arg("index.js")
-          .current_dir("../")
+          .arg(index_js_path)
+          .current_dir(resource_dir)
           .spawn();
 
         match child {
