@@ -293,6 +293,100 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Autoupdater Logic (Tauri context only)
+    if (window.__TAURI__) {
+        const { check } = window.__TAURI__.updater;
+        const { relaunch } = window.__TAURI__.process;
+        const { getVersion } = window.__TAURI__.app;
+
+        const checkBtn = document.getElementById('check-updates-btn');
+        const statusContainer = document.getElementById('updater-status-container');
+        const appVersionLabel = document.getElementById('app-version-label');
+        
+        let updateInfo = null;
+        let updateStatus = 'idle'; // idle, checking, ready, downloading, installing
+
+        // Set local app version dynamically
+        getVersion().then(version => {
+            if (appVersionLabel) appVersionLabel.textContent = `LanDock Hub v${version}`;
+        }).catch(err => console.error('[Updater] Failed to get app version:', err));
+
+        async function checkForUpdates(manual = false) {
+            if (updateStatus === 'checking' || updateStatus === 'downloading' || updateStatus === 'installing') return;
+            
+            try {
+                updateStatus = 'checking';
+                statusContainer.innerHTML = `<span style="color: var(--accent);">• Checking...</span>`;
+                
+                const update = await check();
+                if (update) {
+                    updateInfo = update;
+                    updateStatus = 'ready';
+                    statusContainer.innerHTML = `
+                        <button id="install-update-btn" style="background: linear-gradient(135deg, var(--accent), #0891b2); color: white; border: none; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 600; cursor: pointer; box-shadow: 0 0 8px var(--accent-glow); font-family: inherit;">
+                            Install v${update.version}
+                        </button>
+                    `;
+                    document.getElementById('install-update-btn').addEventListener('click', installUpdate);
+                    
+                    if (!manual) {
+                        addLog('System', `Updates found! v${update.version} is available for installation.`);
+                    }
+                } else {
+                    updateStatus = 'idle';
+                    statusContainer.innerHTML = `<button id="check-updates-btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer; text-decoration: underline; font-family: inherit; font-size: inherit; padding: 0;">(Check for Updates)</button>`;
+                    document.getElementById('check-updates-btn').addEventListener('click', () => checkForUpdates(true));
+                    if (manual) {
+                        alert('LanDock is already up to date!');
+                    }
+                }
+            } catch (err) {
+                console.error('[Updater] Update check failed:', err);
+                updateStatus = 'idle';
+                statusContainer.innerHTML = `<button id="check-updates-btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer; text-decoration: underline; font-family: inherit; font-size: inherit; padding: 0;">(Check for Updates)</button>`;
+                document.getElementById('check-updates-btn').addEventListener('click', () => checkForUpdates(true));
+            }
+        }
+
+        async function installUpdate() {
+            if (!updateInfo) return;
+            try {
+                updateStatus = 'downloading';
+                statusContainer.innerHTML = `<span style="color: #22d3ee; font-weight: 600;">• Downloading...</span>`;
+                
+                await updateInfo.download((event) => {
+                    if (event.event === 'Progress') {
+                        // Progress callback can be used, but since we are simple we show general progress
+                    }
+                });
+                
+                updateStatus = 'installing';
+                statusContainer.innerHTML = `<span style="color: #34d399; font-weight: 600;">• Installing...</span>`;
+                
+                await updateInfo.install();
+                await relaunch();
+            } catch (err) {
+                console.error('[Updater] Update failed:', err);
+                updateStatus = 'ready';
+                statusContainer.innerHTML = `
+                    <button id="install-update-btn" style="background: linear-gradient(135deg, var(--accent), #0891b2); color: white; border: none; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 600; cursor: pointer; box-shadow: 0 0 8px var(--accent-glow); font-family: inherit;">
+                        Install v${updateInfo.version}
+                    </button>
+                `;
+                document.getElementById('install-update-btn').addEventListener('click', installUpdate);
+                alert('Update installation failed. Please check your network connection.');
+            }
+        }
+
+        // Run checking on startup after a delay
+        setTimeout(() => checkForUpdates(false), 3000);
+        
+        // Bind initial manual button
+        if (checkBtn) {
+            checkBtn.addEventListener('click', () => checkForUpdates(true));
+        }
+    }
+
     // Initialize
     loadStatus();
     connectSocket();

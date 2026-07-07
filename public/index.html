@@ -241,9 +241,17 @@
             </div>
         </main>
         
-        <!-- Footer Credit -->
-        <footer style="display: flex; justify-content: flex-end; font-size: 11px; color: var(--text-muted); width: 100%; margin-top: 10px; padding: 0 4px; box-sizing: border-box;">
-            <span>Developed by <a href="https://github.com/sudoaanish" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Aanish Farrukh (sudoaanish)</a></span>
+        <!-- Footer Credit & Autoupdater -->
+        <footer style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); width: 100%; margin-top: 10px; padding: 0 4px; box-sizing: border-box; font-family: monospace;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span id="app-version-label">LanDock Hub v1.0.0</span>
+                <span id="updater-status-container">
+                    <button id="check-updates-btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer; text-decoration: underline; font-family: inherit; font-size: inherit; padding: 0;" title="Click to check for updates">(Check for Updates)</button>
+                </span>
+            </div>
+            <div>
+                Developed by <a href="https://github.com/sudoaanish" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Aanish Farrukh (sudoaanish)</a>
+            </div>
         </footer>
     </div>
 

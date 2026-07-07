@@ -4,7 +4,8 @@
   "description": "LanDock - Control your PC from your iPhone",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "tauri": "tauri"
   },
   "dependencies": {
     "clipboardy": "latest",
