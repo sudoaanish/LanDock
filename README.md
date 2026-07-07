@@ -77,7 +77,7 @@ LanDock wraps a local WebSocket server, native Win32 input emulator, and local f
 ## Installation & Setup
 
 ### 1. Pre-requisites
-- A Windows 10/11 computer.
+- A Windows 10/11 computer with **Node.js (v18+)** installed on your system.
 - An iPhone running iOS 14+.
 
 ### 2. Connect Your Devices
