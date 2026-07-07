@@ -17,10 +17,13 @@
         body {
             display: flex;
             flex-direction: column;
-            height: 100vh;
-            height: -webkit-fill-available; /* Fixed viewport height bug in Safari */
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            height: 100svh;
+            height: 100dvh;
             padding-top: env(safe-area-inset-top);
-            padding-bottom: env(safe-area-inset-bottom);
+            padding-bottom: 0;
+            overflow: hidden;
         }
 
         /* Top Status Bar */
@@ -74,10 +77,10 @@
         /* Main Viewport Container */
         .views-container {
             flex-grow: 1;
+            min-height: 0;
             position: relative;
             overflow: hidden;
             width: 100%;
-            height: 100%;
         }
 
         .view-panel {
@@ -242,12 +245,14 @@
         /* Bottom Tab Navigator */
         .bottom-nav {
             display: flex;
-            height: 64px;
+            min-height: calc(64px + env(safe-area-inset-bottom));
+            padding-bottom: env(safe-area-inset-bottom);
             border-top: 1px solid var(--border-color);
             background: rgba(8, 9, 12, 0.7);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             z-index: 10;
+            flex-shrink: 0;
         }
 
         .nav-item {

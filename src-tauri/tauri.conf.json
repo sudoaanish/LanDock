@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "LanDock",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "identifier": "com.landock.app",
   "build": {
     "frontendDist": "../public",

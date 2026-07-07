@@ -7,6 +7,8 @@ Set-StrictMode -Version Latest
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
+$packageJsonPath = Join-Path $repoRoot "package.json"
+$appVersion = (Get-Content -LiteralPath $packageJsonPath -Raw | ConvertFrom-Json).version
 $releaseDir = Join-Path $repoRoot "src-tauri\target\release"
 $appExe = Join-Path $releaseDir "app.exe"
 $resourceDir = Join-Path $releaseDir "_up_"
@@ -14,7 +16,7 @@ $bundledNode = Join-Path $resourceDir "vendor\node\win-x64\node.exe"
 $wixObj = Join-Path $releaseDir "wix\x64\main.wixobj"
 $wixLoc = Join-Path $releaseDir "wix\x64\locale.wxl"
 $msiDir = Join-Path $releaseDir "bundle\msi"
-$msiPath = Join-Path $msiDir "LanDock_1.0.0_x64_en-US.msi"
+$msiPath = Join-Path $msiDir "LanDock_${appVersion}_x64_en-US.msi"
 $wixLight = Join-Path $env:LOCALAPPDATA "tauri\WixTools314\light.exe"
 $cargoBin = Join-Path $env:USERPROFILE ".cargo\bin"
 

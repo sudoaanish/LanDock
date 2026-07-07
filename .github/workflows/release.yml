@@ -36,15 +36,16 @@ jobs:
           releaseBody: |
             ### LanDock ${{ github.ref_name }}
             
-            Welcome to the official release of LanDock! LanDock turns your iPhone into a multi-touch trackpad, keyboard, universal clipboard sync, and bidirectional file dropzone for your computer - running entirely over local Wi-Fi / Hotspot networks with no iOS app installation required.
+            LanDock turns your Windows PC into a local Wi-Fi hub for your iPhone. Install the Windows MSI, launch LanDock, scan the QR code, and use your iPhone as a local trackpad, keyboard, clipboard bridge, and file drop client.
             
             Release highlights:
-            * Universal Clipboard Sync: Dynamic sync between Windows and iPhone clipboards.
-            * Bidirectional File Sharing: Drop files on the desktop app to push to iPhone, or capture/upload from iPhone directly to your Windows Downloads folder.
-            * Win32 Input Emulation: Multi-touch trackpad gestures (scrolling, clicking, dragging) emulated locally.
-            * Installer Bundles: Native installer generated for Windows (.msi).
+            * Self-contained Windows MSI with bundled Node.js runtime.
+            * QR-based local pairing, with Windows Mobile Hotspot support.
+            * Recommended hotspot QR target: `192.168.137.1`.
+            * iPhone web client with Add to Home Screen support.
+            * Clipboard bridge, file transfer, keyboard, and pointer controls.
             
             Installation:
-            * Windows: Download and run `LanDock_${{ github.ref_name }}_x64_en-US.msi`.
+            * Windows: Download and run the `.msi` installer attached to this release.
           releaseDraft: true
           prerelease: false

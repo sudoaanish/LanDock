@@ -1,16 +1,53 @@
+<div align="center">
+
+<img src="public/logo.png" alt="LanDock logo" width="260" />
+
 # LanDock
 
-LanDock is a Windows desktop hub that lets an iPhone control your PC over your local network. It provides a QR-driven phone client for trackpad, keyboard, clipboard sync, and local file transfer workflows without requiring an App Store app.
+### A Windows desktop hub and iPhone web client for local PC control and file sharing.
 
-Version: `1.0.0`
+LanDock turns your Windows PC into a local Wi-Fi hub for your iPhone. Install the Windows MSI, launch LanDock, scan the QR code, and use your iPhone as a local trackpad, keyboard, clipboard bridge, and file drop client. No App Store app is required.
+
+<p>
+  <a href="https://github.com/sudoaanish/LanDock/releases/latest">
+    <img src="https://img.shields.io/github/v/release/sudoaanish/LanDock?style=for-the-badge&label=Latest%20Release" alt="Latest release" />
+  </a>
+  <a href="https://github.com/sudoaanish/LanDock/releases">
+    <img src="https://img.shields.io/badge/Download-MSI-7C3AED?style=for-the-badge&logo=github" alt="Download MSI" />
+  </a>
+  <a href="https://github.com/sudoaanish/LanDock/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/sudoaanish/LanDock?style=for-the-badge" alt="License" />
+  </a>
+</p>
+
+<p>
+  <img src="https://img.shields.io/badge/Windows-10%2F11-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows 10/11" />
+  <img src="https://img.shields.io/badge/iPhone-Web%20Client-000000?style=for-the-badge&logo=apple&logoColor=white" alt="iPhone web client" />
+  <img src="https://img.shields.io/badge/Node.js-Bundled-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Bundled Node.js" />
+  <img src="https://img.shields.io/badge/Network-Local%20LAN%20%7C%20Hotspot-success?style=for-the-badge" alt="Local LAN / Hotspot" />
+</p>
+
+<p>
+  <a href="#features">Features</a> |
+  <a href="#install">Install</a> |
+  <a href="#connect-an-iphone">Connect an iPhone</a> |
+  <a href="#development">Development</a> |
+  <a href="#license">License</a>
+</p>
+
+</div>
+
+---
+
+Version: `1.0.1`
 
 ## Features
 
 - Windows desktop dashboard built with Tauri.
-- Self-contained packaged app with a bundled Windows Node runtime.
+- Self-contained Windows MSI with a bundled Node.js runtime.
 - QR-code pairing for the iPhone web client.
 - Windows Mobile Hotspot friendly connection flow, with `192.168.137.1` prioritized when present.
-- iPhone Home Screen support with LanDock title/icon metadata.
+- iPhone Add to Home Screen support with LanDock title and icon.
 - Multi-touch phone trackpad:
   - one-finger movement and tap
   - two-finger scroll
@@ -20,16 +57,17 @@ Version: `1.0.0`
 - Clipboard sync between PC and iPhone client.
 - Local file and image transfer between PC and iPhone.
 - Runtime diagnostics for backend startup failures.
+- Dashboard update-check/install control for signed Tauri updater releases.
 
 ## Install
 
 For normal use, download the Windows MSI from the GitHub Releases page and install it:
 
 ```text
-LanDock_1.0.0_x64_en-US.msi
+LanDock_1.0.1_x64_en-US.msi
 ```
 
-The packaged Windows app includes its own Node runtime under the app resources. You do not need to install Node.js to run the MSI build.
+The packaged Windows app includes its own Node.js runtime under the app resources. You do not need to install Node.js to run the MSI build.
 
 ## Connect an iPhone
 
@@ -103,7 +141,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_windows.
 The script runs the Tauri release build, verifies the release executable and bundled resources, and produces:
 
 ```text
-src-tauri\target\release\bundle\msi\LanDock_1.0.0_x64_en-US.msi
+src-tauri\target\release\bundle\msi\LanDock_1.0.1_x64_en-US.msi
 ```
 
 On some local Windows environments, WiX `light.exe` can fail during ICE validation because Windows Installer Service validation is unavailable. If the release executable and WiX object were already generated, the script applies the documented local fallback:
@@ -114,19 +152,10 @@ light.exe -sval
 
 This fallback is only for the developer build environment. It is not a normal user installation step.
 
-## Release Checklist
-
-Before tagging a release:
-
-1. Build with `scripts/build_windows.ps1`.
-2. Install the MSI on a clean Windows machine or VM.
-3. Confirm the app launches without global Node.js installed.
-4. Confirm the dashboard shows QR codes.
-5. Confirm iPhone connects through `192.168.137.1` when using Windows Mobile Hotspot.
-6. Confirm Add to Home Screen shows the LanDock title and icon.
-
 ## License
 
 LanDock is licensed under the MIT License. See [LICENSE](LICENSE).
+
+Created by Aanish Farrukh / sudoaanish.
 
 Copyright (c) 2026 Aanish Farrukh.
