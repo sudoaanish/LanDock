@@ -638,9 +638,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileCard = document.createElement('div');
         fileCard.className = 'glass-card fade-in';
         fileCard.style.display = 'flex';
-        fileCard.style.alignItems = 'center';
-        fileCard.style.justifyContent = 'space-between';
-        fileCard.style.padding = '10px 12px';
+        fileCard.style.flexDirection = 'column';
+        fileCard.style.padding = '12px';
         fileCard.style.margin = '4px 0';
         fileCard.style.border = '1px solid rgba(255,255,255,0.04)';
         fileCard.style.background = 'rgba(255,255,255,0.01)';
@@ -648,12 +647,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const host = window.location.host;
         const fullUrl = `http://${host}${url}`;
 
+        const isImage = /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(name);
+        let previewHtml = '';
+        if (isImage) {
+            previewHtml = `
+                <div style="margin-top: 10px; text-align: center; width: 100%;">
+                    <img src="${fullUrl}" alt="${name}" style="max-width: 100%; max-height: 160px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); object-fit: contain;">
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">Long-press image to Save to Photos</div>
+                </div>
+            `;
+        }
+
         fileCard.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 8px; width: 65%;">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent); flex-shrink: 0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                <div style="font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-main);">${name}</div>
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                <div style="display: flex; align-items: center; gap: 8px; width: 65%;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent); flex-shrink: 0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                    <div style="font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-main);">${name}</div>
+                </div>
+                <a href="${fullUrl}" target="_blank" download="${name}" style="background: linear-gradient(135deg, var(--accent), #0891b2); color: white; text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; box-shadow: 0 2px 8px var(--accent-glow); display: inline-block;">Get (${sizeStr})</a>
             </div>
-            <a href="${fullUrl}" download="${name}" style="background: linear-gradient(135deg, var(--accent), #0891b2); color: white; text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; box-shadow: 0 2px 8px var(--accent-glow); display: inline-block;">Get (${sizeStr})</a>
+            ${previewHtml}
         `;
         mobileReceivedFiles.insertBefore(fileCard, mobileReceivedFiles.firstChild);
     }
