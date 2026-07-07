@@ -14,22 +14,29 @@ pub fn run() {
         )?;
       }
 
-      println!("[Tauri] Starting background Node.js server...");
-      
-      // Spawn node index.js from the parent directory relative to src-tauri
-      let child = Command::new("node")
-        .arg("index.js")
-        .current_dir("../")
-        .spawn();
+      let server_already_running = std::net::TcpStream::connect("127.0.0.1:3731").is_ok();
 
-      match child {
-        Ok(c) => {
-          println!("[Tauri] Background Node.js server started with PID: {}", c.id());
-          app.manage(Mutex::new(Some(c)));
-        }
-        Err(e) => {
-          eprintln!("[Tauri] Failed to start background Node.js server: {}", e);
-          app.manage(Mutex::new(None::<Child>));
+      if server_already_running {
+        println!("[Tauri] Background Node.js server is already active on port 3731. Skipping spawn.");
+        app.manage(Mutex::new(None::<Child>));
+      } else {
+        println!("[Tauri] Starting background Node.js server...");
+        
+        // Spawn node index.js from the parent directory relative to src-tauri
+        let child = Command::new("node")
+          .arg("index.js")
+          .current_dir("../")
+          .spawn();
+
+        match child {
+          Ok(c) => {
+            println!("[Tauri] Background Node.js server started with PID: {}", c.id());
+            app.manage(Mutex::new(Some(c)));
+          }
+          Err(e) => {
+            eprintln!("[Tauri] Failed to start background Node.js server: {}", e);
+            app.manage(Mutex::new(None::<Child>));
+          }
         }
       }
 

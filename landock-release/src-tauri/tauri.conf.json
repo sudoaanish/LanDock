@@ -6,7 +6,7 @@
   "build": {
     "frontendDist": "../public",
     "devUrl": "http://localhost:3731",
-    "beforeDevCommand": "",
+    "beforeDevCommand": "node index.js",
     "beforeBuildCommand": ""
   },
   "app": {
