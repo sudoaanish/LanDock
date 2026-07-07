@@ -2,6 +2,9 @@ use std::process::{Command, Child};
 use std::sync::Mutex;
 use tauri::Manager;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   let app = tauri::Builder::default()
@@ -25,12 +28,23 @@ pub fn run() {
         println!("[Tauri] Starting background Node.js server...");
         
         let resource_dir = app.path().resource_dir().expect("failed to get resource dir");
-        let index_js_path = resource_dir.join("index.js");
+        let server_dir = resource_dir.join("_up_");
+        let index_js_path = server_dir.join("index.js");
 
-        let child = Command::new("node")
-          .arg(index_js_path)
-          .current_dir(resource_dir)
-          .spawn();
+        #[cfg(target_os = "windows")]
+        let mut cmd = Command::new("node");
+        #[cfg(target_os = "windows")]
+        cmd.arg(index_js_path)
+           .current_dir(&server_dir)
+           .creation_flags(0x08000000); // CREATE_NO_WINDOW
+
+        #[cfg(not(target_os = "windows"))]
+        let mut cmd = Command::new("node");
+        #[cfg(not(target_os = "windows"))]
+        cmd.arg(index_js_path)
+           .current_dir(&server_dir);
+
+        let child = cmd.spawn();
 
         match child {
           Ok(c) => {
