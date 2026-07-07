@@ -33,11 +33,11 @@
         .logo {
             display: flex;
             align-items: center;
-            height: 48px;
+            height: 80px;
         }
 
         .logo img {
-            height: 48px;
+            height: 80px;
             object-fit: contain;
         }
 
@@ -174,17 +174,19 @@
 </head>
 <body class="fade-in">
     <div class="dashboard-container">
-        <!-- Header -->
-        <header class="glass-panel">
+        <!-- Header Section -->
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <div class="logo">
                 <img src="logo.png" alt="LanDock Logo">
             </div>
-            <div class="status-badge">
-                <span id="status-indicator" class="glow-indicator"></span>
-                <span id="status-text">Server Active</span>
-                <span id="connections-count" style="margin-left: 6px; font-weight: 600; color: var(--accent);">0 clients</span>
-            </div>
-        </header>
+            <header class="glass-panel" style="flex-grow: 1; margin-left: 24px; display: flex; justify-content: flex-end; align-items: center; padding: 12px 20px;">
+                <div class="status-badge">
+                    <span id="status-indicator" class="glow-indicator"></span>
+                    <span id="status-text">Server Active</span>
+                    <span id="connections-count" style="margin-left: 6px; font-weight: 600; color: var(--accent);">0 clients</span>
+                </div>
+            </header>
+        </div>
 
         <!-- Content Grid -->
         <main class="main-grid">
