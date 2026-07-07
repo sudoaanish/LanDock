@@ -32,19 +32,19 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'LanDock Hub ${{ github.ref_name }}'
+          releaseName: 'LanDock ${{ github.ref_name }}'
           releaseBody: |
-            ### LanDock Hub ${{ github.ref_name }}
+            ### LanDock ${{ github.ref_name }}
             
-            Welcome to the official release of **LanDock Hub**! LanDock turns your iPhone into a multi-touch trackpad, keyboard, universal clipboard sync, and bidirectional file dropzone for your computer—running entirely over local Wi-Fi / Hotspot networks with no iOS app installation required.
+            Welcome to the official release of LanDock! LanDock turns your iPhone into a multi-touch trackpad, keyboard, universal clipboard sync, and bidirectional file dropzone for your computer - running entirely over local Wi-Fi / Hotspot networks with no iOS app installation required.
             
-            #### 🚀 Release highlights
-            * **Universal Clipboard Sync**: Dynamic sync between Windows and iPhone clipboards.
-            * **Bidirectional File Sharing**: Drop files on the desktop app to push to iPhone, or capture/upload from iPhone directly to your Windows Downloads folder.
-            * **Win32 Input Emulation**: Multi-touch trackpad gestures (scrolling, clicking, dragging) emulated locally.
-            * **Installer Bundles**: Native installer generated for Windows (`.msi`).
+            Release highlights:
+            * Universal Clipboard Sync: Dynamic sync between Windows and iPhone clipboards.
+            * Bidirectional File Sharing: Drop files on the desktop app to push to iPhone, or capture/upload from iPhone directly to your Windows Downloads folder.
+            * Win32 Input Emulation: Multi-touch trackpad gestures (scrolling, clicking, dragging) emulated locally.
+            * Installer Bundles: Native installer generated for Windows (.msi).
             
-            #### 📦 Installation
-            * **Windows**: Download and run `LanDock_${{ github.ref_name }}_x64_en-US.msi`.
+            Installation:
+            * Windows: Download and run `LanDock_${{ github.ref_name }}_x64_en-US.msi`.
           releaseDraft: true
           prerelease: false
