@@ -6,7 +6,7 @@ const { WebSocketServer } = require('ws');
 const koffi = require('koffi');
 const qrcodeTerminal = require('qrcode-terminal');
 const QRCode = require('qrcode');
-const clipboard = require('clipboardy');
+const clipboard = require('clipboardy').default;
 
 const PORT = 3731;
 
