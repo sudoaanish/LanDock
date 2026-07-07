@@ -8,10 +8,14 @@
   },
   "dependencies": {
     "clipboardy": "latest",
+    "formidable": "^3.5.4",
     "koffi": "latest",
     "qrcode": "latest",
     "qrcode-terminal": "latest",
     "ws": "latest"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4"
+  }
 }

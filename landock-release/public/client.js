@@ -58,6 +58,10 @@ document.addEventListener('DOMContentLoaded', () => {
             item.classList.add('active');
             document.getElementById(target).classList.add('active');
             
+            // Remove notification dot on selection
+            const dot = item.querySelector('.notif-dot');
+            if (dot) dot.remove();
+
             // Hide keyboard if switching away from keyboard tab
             if (target !== 'view-keyboard') {
                 hiddenInput.blur();
@@ -100,6 +104,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (msg.type === 'clipboard_sync') {
                     clipArea.value = msg.text;
                     showClipStatus('PC Clipboard Synced');
+                } else if (msg.type === 'file_available') {
+                    handleSharedFileAvailable(msg.name, msg.size, msg.url);
+                    notifyFileTab();
                 }
             } catch (err) {
                 // Ignore text commands echoed back or unhandled types
@@ -516,6 +523,150 @@ document.addEventListener('DOMContentLoaded', () => {
         valScrollSens.textContent = `${scrollSensitivity.toFixed(1)}x`;
         localStorage.setItem('scrollSensitivity', scrollSensitivity);
     });
+
+    // ==========================================
+    // 6. IMAGE & FILE SHARING LOGIC
+    // ==========================================
+    const fileDropzone = document.getElementById('file-dropzone');
+    const mobileFileInput = document.getElementById('mobile-file-input');
+    const uploadStatusCard = document.getElementById('upload-status-card');
+    const uploadFilename = document.getElementById('upload-filename');
+    const uploadProgressPercent = document.getElementById('upload-progress-percent');
+    const uploadCancelBtn = document.getElementById('upload-cancel-btn');
+    const mobileReceivedFiles = document.getElementById('mobile-received-files');
+
+    let activeUploadXhr = null;
+
+    if (fileDropzone) {
+        fileDropzone.addEventListener('click', () => {
+            mobileFileInput.click();
+        });
+    }
+
+    if (mobileFileInput) {
+        mobileFileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (files.length > 0) {
+                uploadFile(files[0]);
+            }
+        });
+    }
+
+    function uploadFile(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        activeUploadXhr = new XMLHttpRequest();
+        
+        // Show progress UI
+        uploadFilename.textContent = file.name;
+        uploadProgressPercent.textContent = '0%';
+        uploadStatusCard.style.display = 'flex';
+
+        activeUploadXhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+                const percent = Math.round((event.loaded / event.total) * 100);
+                uploadProgressPercent.textContent = `${percent}%`;
+            }
+        };
+
+        activeUploadXhr.onload = () => {
+            uploadStatusCard.style.display = 'none';
+            if (activeUploadXhr && activeUploadXhr.status === 200) {
+                mobileFileInput.value = '';
+            }
+            activeUploadXhr = null;
+        };
+
+        activeUploadXhr.onerror = () => {
+            uploadProgressPercent.textContent = 'Failed';
+            uploadProgressPercent.style.color = '#ef4444';
+            activeUploadXhr = null;
+            setTimeout(() => {
+                uploadStatusCard.style.display = 'none';
+                uploadProgressPercent.style.color = '';
+            }, 2000);
+        };
+
+        activeUploadXhr.onabort = () => {
+            uploadStatusCard.style.display = 'none';
+            activeUploadXhr = null;
+        };
+
+        // Resolve host dynamically
+        const host = getHost();
+        activeUploadXhr.open('POST', `http://${host}/api/upload`, true);
+        activeUploadXhr.send(formData);
+    }
+
+    if (uploadCancelBtn) {
+        uploadCancelBtn.addEventListener('click', () => {
+            if (activeUploadXhr) {
+                activeUploadXhr.abort();
+            }
+        });
+    }
+
+    function notifyFileTab() {
+        const filesTab = document.querySelector('.nav-item[data-target="view-files"]');
+        const activeTab = document.querySelector('.nav-item.active');
+        if (filesTab && activeTab && activeTab.getAttribute('data-target') !== 'view-files') {
+            let dot = filesTab.querySelector('.notif-dot');
+            if (!dot) {
+                dot = document.createElement('span');
+                dot.className = 'notif-dot';
+                dot.style.position = 'absolute';
+                dot.style.top = '10px';
+                dot.style.right = '25%';
+                dot.style.width = '8px';
+                dot.style.height = '8px';
+                dot.style.borderRadius = '50%';
+                dot.style.background = '#ef4444';
+                filesTab.style.position = 'relative';
+                filesTab.appendChild(dot);
+            }
+        }
+    }
+
+    function handleSharedFileAvailable(name, size, url) {
+        if (!mobileReceivedFiles) return;
+        
+        // Clear empty state
+        if (mobileReceivedFiles.querySelector('div') && mobileReceivedFiles.querySelector('div').textContent.includes('No files shared')) {
+            mobileReceivedFiles.innerHTML = '';
+        }
+
+        const sizeStr = formatBytes(size);
+        const fileCard = document.createElement('div');
+        fileCard.className = 'glass-card fade-in';
+        fileCard.style.display = 'flex';
+        fileCard.style.alignItems = 'center';
+        fileCard.style.justifyContent = 'space-between';
+        fileCard.style.padding = '10px 12px';
+        fileCard.style.margin = '4px 0';
+        fileCard.style.border = '1px solid rgba(255,255,255,0.04)';
+        fileCard.style.background = 'rgba(255,255,255,0.01)';
+        
+        const host = getHost();
+        const fullUrl = `http://${host}${url}`;
+
+        fileCard.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px; width: 65%;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent); flex-shrink: 0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                <div style="font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-main);">${name}</div>
+            </div>
+            <a href="${fullUrl}" download="${name}" style="background: linear-gradient(135deg, var(--accent), #0891b2); color: white; text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; box-shadow: 0 2px 8px var(--accent-glow); display: inline-block;">Get (${sizeStr})</a>
+        `;
+        mobileReceivedFiles.insertBefore(fileCard, mobileReceivedFiles.firstChild);
+    }
+
+    function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
 
     // Initialize Connection on Load
     connectSocket();

@@ -527,6 +527,35 @@
                 <button id="clip-push-btn">Paste to PC</button>
             </div>
         </div>
+
+        <!-- View 4: Files Share -->
+        <div id="view-files" class="view-panel files-view" style="gap: 16px;">
+            <div id="file-dropzone" class="glass-card" style="flex-grow: 1; border: 2px dashed rgba(255,255,255,0.08); border-radius: 16px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: var(--text-muted); cursor: pointer; padding: 24px; background: radial-gradient(circle at center, rgba(147, 51, 234, 0.02) 0%, transparent 80%); transition: all 0.3s ease;">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent); margin-bottom: 16px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                <p style="font-weight: 600; color: var(--text-main); margin-bottom: 8px;">Upload Images / Files</p>
+                <p style="font-size: 12px; max-width: 220px; line-height: 1.4;">Tap to choose photo, video, or files to send to PC</p>
+                <input type="file" id="mobile-file-input" style="display: none;" accept="*">
+            </div>
+
+            <!-- Upload progress / file status overlay -->
+            <div id="upload-status-card" class="glass-card" style="display: none; align-items: center; justify-content: space-between; padding: 12px 16px;">
+                <div style="display: flex; align-items: center; gap: 10px; width: 80%;">
+                    <div style="font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-main);" id="upload-filename">File.jpg</div>
+                    <div style="font-size: 11px; color: var(--text-muted);" id="upload-progress-percent">0%</div>
+                </div>
+                <div style="width: 20%; display: flex; justify-content: flex-end;">
+                    <div id="upload-cancel-btn" style="font-size: 12px; color: #ef4444; font-weight: 600; cursor: pointer;">Cancel</div>
+                </div>
+            </div>
+
+            <!-- Received files list -->
+            <div class="glass-card" style="display: flex; flex-direction: column; height: 160px; min-height: 160px; padding: 16px;">
+                <div style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Shared from PC</div>
+                <div id="mobile-received-files" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 30px;">No files shared yet</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Bottom Navigator -->
@@ -542,6 +571,10 @@
         <div class="nav-item" data-target="view-clipboard">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
             Clipboard
+        </div>
+        <div class="nav-item" data-target="view-files">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            Files
         </div>
     </div>
 

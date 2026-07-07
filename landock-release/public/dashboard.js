@@ -12,10 +12,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let socket;
     let isConnected = false;
 
+    function getHost() {
+        let host = window.location.host;
+        if (!host || host.includes('tauri') || host.includes('package') || window.location.protocol === 'tauri:' || window.location.protocol === 'data:') {
+            return 'localhost:3731';
+        }
+        return host;
+    }
+
     // 1. Fetch IP Addresses & QR Codes
     async function loadStatus() {
         try {
-            const res = await fetch('/api/status');
+            const host = getHost();
+            const res = await fetch(`http://${host}/api/status`);
             const data = await res.json();
             
             // Render QR Cards
@@ -50,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Setup WebSockets for Real-time sync & logs
     function connectSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host;
+        const host = getHost();
         socket = new WebSocket(`${protocol}//${host}`);
 
         socket.onopen = () => {
@@ -73,9 +82,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     addLog('Clipboard', `Synced: "${msg.text.substring(0, 20)}${msg.text.length > 20 ? '...' : ''}"`);
                 } else if (msg.type === 'log_event') {
                     addLog(msg.time, msg.msg, true);
+                } else if (msg.type === 'file_received') {
+                    addLog('Files', `Received file from iPhone: ${msg.name}`);
+                    appendReceivedFile(msg.name, msg.size, msg.path);
                 }
             } catch (err) {
-                // Ignore standard text streams not in JSON format
+                // Ignore text commands echoed back or unhandled types
             }
         };
 
@@ -160,6 +172,126 @@ document.addEventListener('DOMContentLoaded', () => {
             copyClipBtn.style.borderColor = '';
         }, 1500);
     });
+
+    // ==========================================
+    // 5. IMAGE & FILE SHARING CORE
+    // ==========================================
+    const receivedFilesList = document.getElementById('received-files-list');
+    const dragOverlay = document.getElementById('drag-overlay');
+
+    function appendReceivedFile(name, size, filePath) {
+        if (!receivedFilesList) return;
+
+        // Clear empty state
+        if (receivedFilesList.querySelector('div') && receivedFilesList.querySelector('div').textContent.includes('Awaiting files')) {
+            receivedFilesList.innerHTML = '';
+        }
+
+        const sizeStr = formatBytes(size);
+        const card = document.createElement('div');
+        card.className = 'glass-card fade-in';
+        card.style.display = 'flex';
+        card.style.alignItems = 'center';
+        card.style.justifyContent = 'space-between';
+        card.style.padding = '8px 12px';
+        card.style.margin = '4px 0';
+        card.style.border = '1px solid rgba(255,255,255,0.03)';
+        card.style.background = 'rgba(255,255,255,0.005)';
+
+        card.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px; width: 65%;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent); flex-shrink: 0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                <div style="font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-main);">${name} (${sizeStr})</div>
+            </div>
+        `;
+
+        const btn = document.createElement('button');
+        btn.className = 'secondary';
+        btn.style.padding = '4px 10px';
+        btn.style.fontSize = '11px';
+        btn.style.fontWeight = '600';
+        btn.style.borderRadius = '6px';
+        btn.style.width = 'auto';
+        btn.style.height = 'auto';
+        btn.textContent = 'Folder';
+        btn.addEventListener('click', () => {
+            revealPath(filePath);
+        });
+
+        card.appendChild(btn);
+        receivedFilesList.insertBefore(card, receivedFilesList.firstChild);
+    }
+
+    function revealPath(filePath) {
+        const host = getHost();
+        fetch(`http://${host}/api/reveal?path=${encodeURIComponent(filePath)}`)
+            .catch(err => console.error('Failed to request file reveal:', err));
+    }
+
+    function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    // Drag & Drop Upload Handlers
+    window.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        if (dragOverlay) dragOverlay.style.display = 'flex';
+    });
+
+    window.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+
+    if (dragOverlay) {
+        window.addEventListener('dragleave', (e) => {
+            if (e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
+                dragOverlay.style.display = 'none';
+            }
+        });
+    }
+
+    window.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (dragOverlay) dragOverlay.style.display = 'none';
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            uploadSharedFiles(files);
+        }
+    });
+
+    function uploadSharedFiles(files) {
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            addLog('System', `Sharing file with iPhone: ${file.name} (${formatBytes(file.size)})...`);
+            
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const xhr = new XMLHttpRequest();
+            const host = getHost();
+            
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    addLog('System', `Shared file successfully: ${file.name}`);
+                } else {
+                    addLog('System', `Failed to share file: ${file.name}`);
+                }
+            };
+            
+            
+            xhr.onerror = () => {
+                addLog('System', `Error sharing file: ${file.name}`);
+            };
+
+            xhr.open('POST', `http://${host}/api/share`, true);
+            xhr.send(formData);
+        }
+    }
 
     // Initialize
     loadStatus();

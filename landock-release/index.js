@@ -7,6 +7,8 @@ const koffi = require('koffi');
 const qrcodeTerminal = require('qrcode-terminal');
 const QRCode = require('qrcode');
 const clipboard = require('clipboardy').default;
+const formidable = require('formidable');
+const { exec } = require('child_process');
 
 const PORT = 3731;
 
@@ -242,6 +244,15 @@ function setSystemClipboard(text) {
     }
 }
 
+function revealInExplorer(filePath) {
+    if (process.platform !== 'win32') return;
+    exec(`explorer.exe /select,"${filePath}"`, (err) => {
+        if (err) {
+            console.error('[Explorer] Failed to reveal file:', err.message);
+        }
+    });
+}
+
 // ==========================================
 // 3. HTTP STATIC & API SERVER
 // ==========================================
@@ -256,6 +267,135 @@ const MIME_TYPES = {
 
 const server = http.createServer((req, res) => {
     let urlPath = req.url;
+
+    // API Upload Route (iPhone -> PC)
+    if (urlPath.startsWith('/api/upload') && req.method === 'POST') {
+        const uploadDir = path.join(os.homedir(), 'Downloads', 'LanDock');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        const form = new formidable.IncomingForm({
+            uploadDir: uploadDir,
+            keepExtensions: true,
+            maxFileSize: 100 * 1024 * 1024 // 100MB
+        });
+
+        form.parse(req, (err, fields, files) => {
+            if (err) {
+                console.error('[Upload] Error parsing form:', err.message);
+                res.statusCode = 500;
+                res.end(JSON.stringify({ error: 'Upload failed: ' + err.message }));
+                return;
+            }
+
+            let fileObj = files.file;
+            if (Array.isArray(fileObj)) fileObj = fileObj[0];
+
+            if (!fileObj) {
+                res.statusCode = 400;
+                res.end(JSON.stringify({ error: 'No file uploaded' }));
+                return;
+            }
+
+            const originalName = fileObj.originalFilename || fileObj.name || 'uploaded_file';
+            const targetPath = path.join(uploadDir, originalName);
+
+            fs.rename(fileObj.filepath || fileObj.path, targetPath, (renameErr) => {
+                if (renameErr) {
+                    console.error('[Upload] Error renaming file:', renameErr.message);
+                    res.statusCode = 500;
+                    res.end(JSON.stringify({ error: 'Failed to save file' }));
+                    return;
+                }
+
+                console.log(`[Upload] File saved: ${targetPath}`);
+                broadcast({
+                    type: 'file_received',
+                    name: originalName,
+                    size: fileObj.size,
+                    path: targetPath
+                }, null);
+
+                revealInExplorer(targetPath);
+
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: true, name: originalName }));
+            });
+        });
+        return;
+    }
+
+    // API Share Route (PC -> iPhone)
+    if (urlPath.startsWith('/api/share') && req.method === 'POST') {
+        const shareDir = path.join(__dirname, 'public', 'shares');
+        if (!fs.existsSync(shareDir)) {
+            fs.mkdirSync(shareDir, { recursive: true });
+        }
+
+        const form = new formidable.IncomingForm({
+            uploadDir: shareDir,
+            keepExtensions: true,
+            maxFileSize: 100 * 1024 * 1024 // 100MB
+        });
+
+        form.parse(req, (err, fields, files) => {
+            if (err) {
+                console.error('[Share] Error parsing form:', err.message);
+                res.statusCode = 500;
+                res.end(JSON.stringify({ error: 'Share failed: ' + err.message }));
+                return;
+            }
+
+            let fileObj = files.file;
+            if (Array.isArray(fileObj)) fileObj = fileObj[0];
+
+            if (!fileObj) {
+                res.statusCode = 400;
+                res.end(JSON.stringify({ error: 'No file uploaded' }));
+                return;
+            }
+
+            const originalName = fileObj.originalFilename || fileObj.name || 'shared_file';
+            const targetPath = path.join(shareDir, originalName);
+
+            fs.rename(fileObj.filepath || fileObj.path, targetPath, (renameErr) => {
+                if (renameErr) {
+                    console.error('[Share] Error renaming file:', renameErr.message);
+                    res.statusCode = 500;
+                    res.end(JSON.stringify({ error: 'Failed to save shared file' }));
+                    return;
+                }
+
+                console.log(`[Share] File shared: ${originalName}`);
+                broadcast({
+                    type: 'file_available',
+                    name: originalName,
+                    size: fileObj.size,
+                    url: `/shares/${encodeURIComponent(originalName)}`
+                }, null);
+
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: true, name: originalName }));
+            });
+        });
+        return;
+    }
+
+    // API Reveal Route (Windows Explorer focus)
+    if (urlPath.startsWith('/api/reveal')) {
+        const parsedUrl = new URL(req.url, 'http://localhost');
+        const filePath = parsedUrl.searchParams.get('path');
+        if (filePath) {
+            revealInExplorer(filePath);
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ success: true }));
+        } else {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: 'Missing path' }));
+        }
+        return;
+    }
 
     // API Status Endpoint
     if (urlPath === '/api/status') {
