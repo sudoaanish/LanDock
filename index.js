@@ -11,6 +11,7 @@ const formidable = require('formidable');
 const { exec } = require('child_process');
 
 const PORT = 3731;
+const shareDir = path.join(os.homedir(), 'Downloads', 'LanDock', 'shares');
 
 // ==========================================
 // 1. NATIVE INPUT EMULATION CORE
@@ -340,7 +341,6 @@ const server = http.createServer((req, res) => {
 
     // API Share Route (PC -> iPhone)
     if (urlPath.startsWith('/api/share') && req.method === 'POST') {
-        const shareDir = path.join(__dirname, 'public', 'shares');
         if (!fs.existsSync(shareDir)) {
             fs.mkdirSync(shareDir, { recursive: true });
         }
@@ -437,14 +437,28 @@ const server = http.createServer((req, res) => {
         urlPath = '/index.html';
     }
 
-    const filePath = path.join(__dirname, 'public', urlPath);
+    let filePath;
+    if (urlPath.startsWith('/shares/')) {
+        const fileName = decodeURIComponent(urlPath.substring(8)); // strip "/shares/"
+        filePath = path.join(shareDir, fileName);
+    } else {
+        filePath = path.join(__dirname, 'public', urlPath);
+    }
     
     // Directory traversal security check
     const publicDir = path.join(__dirname, 'public');
-    if (!filePath.startsWith(publicDir)) {
-        res.statusCode = 403;
-        res.end('Forbidden');
-        return;
+    if (urlPath.startsWith('/shares/')) {
+        if (!filePath.startsWith(shareDir)) {
+            res.statusCode = 403;
+            res.end('Forbidden');
+            return;
+        }
+    } else {
+        if (!filePath.startsWith(publicDir)) {
+            res.statusCode = 403;
+            res.end('Forbidden');
+            return;
+        }
     }
 
     fs.readFile(filePath, (err, content) => {
