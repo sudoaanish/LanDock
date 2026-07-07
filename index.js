@@ -212,15 +212,104 @@ let lastClipboardText = '';
 
 function getLocalIPs() {
     const interfaces = os.networkInterfaces();
-    const ips = [];
+    const candidates = [];
     for (const name of Object.keys(interfaces)) {
         for (const net of interfaces[name]) {
             if (net.family === 'IPv4' && !net.internal) {
-                ips.push(net.address);
+                candidates.push(classifyNetworkAddress(net.address, name));
             }
         }
     }
-    return ips;
+    return orderNetworkCandidates(candidates);
+}
+
+function classifyNetworkAddress(ip, interfaceName) {
+    const lowerName = interfaceName.toLowerCase();
+    const parts = ip.split('.').map(Number);
+    const [a, b, c, d] = parts;
+
+    const isHotspot = ip === '192.168.137.1';
+    const isLinkLocal = a === 169 && b === 254;
+    const isPrivate =
+        a === 10 ||
+        (a === 172 && b >= 16 && b <= 31) ||
+        (a === 192 && b === 168);
+    const isCgnat = a === 100 && b >= 64 && b <= 127;
+    const isKnownHostOnlyRange = a === 192 && b === 168 && c === 56;
+    const isVirtualAdapter = /(virtualbox|vmware|hyper-v|vethernet|virtual|loopback|wsl)/i.test(interfaceName);
+    const isVpnAdapter = /(tailscale|zerotier|vpn|wireguard|openvpn|tun|tap)/i.test(interfaceName) || isCgnat;
+
+    let priority = 50;
+    let label = 'Network Adapter';
+    let hidden = false;
+    let reason = '';
+
+    if (isHotspot) {
+        priority = 0;
+        label = 'Windows Hotspot / Recommended';
+    } else if (isLinkLocal) {
+        priority = 90;
+        label = 'Link-local';
+        hidden = true;
+        reason = 'Link-local 169.254.x.x addresses are usually not reachable from iPhone clients.';
+    } else if (isVirtualAdapter || isKnownHostOnlyRange) {
+        priority = 80;
+        label = 'Virtual Adapter';
+        hidden = true;
+        reason = 'Virtual machine adapters are usually not reachable from the phone.';
+    } else if (isVpnAdapter) {
+        priority = 85;
+        label = 'VPN Adapter';
+        hidden = true;
+        reason = 'VPN or CGNAT-style adapters are usually not reachable from the phone.';
+    } else if (isPrivate) {
+        priority = a === 192 ? 10 : a === 10 ? 20 : 30;
+        label = 'Private LAN';
+    } else {
+        priority = 70;
+        label = 'Advanced Adapter';
+        hidden = true;
+        reason = 'Non-private addresses are unlikely to work for local iPhone LAN pairing.';
+    }
+
+    return {
+        ip,
+        interfaceName,
+        label,
+        priority,
+        hidden,
+        reason,
+        recommended: isHotspot,
+        octets: [a, b, c, d]
+    };
+}
+
+function orderNetworkCandidates(candidates) {
+    const sorted = candidates.sort((left, right) => {
+        if (left.priority !== right.priority) return left.priority - right.priority;
+        return left.ip.localeCompare(right.ip, undefined, { numeric: true });
+    });
+
+    const visible = sorted.filter(item => !item.hidden);
+    const hidden = sorted.filter(item => item.hidden);
+
+    if (visible.length > 0) {
+        return { visible, hidden };
+    }
+
+    const fallbackVisible = hidden.filter(item => !item.ip.startsWith('169.254.'));
+    if (fallbackVisible.length > 0) {
+        return {
+            visible: fallbackVisible.map(item => ({
+                ...item,
+                hidden: false,
+                label: `${item.label} / Fallback`
+            })),
+            hidden: hidden.filter(item => item.ip.startsWith('169.254.'))
+        };
+    }
+
+    return { visible: [], hidden };
 }
 
 function getLastClipboard() {
@@ -412,17 +501,41 @@ const server = http.createServer((req, res) => {
     // API Status Endpoint
     if (urlPath === '/api/status') {
         res.setHeader('Content-Type', 'application/json');
-        const ips = getLocalIPs();
-        const promises = ips.map(ip => {
-            const clientUrl = `http://${ip}:${PORT}/client.html`;
+        const networkAddresses = getLocalIPs();
+        const promises = networkAddresses.visible.map(item => {
+            const clientUrl = `http://${item.ip}:${PORT}/client.html`;
             return QRCode.toDataURL(clientUrl)
-                .then(qrDataUrl => ({ ip, url: clientUrl, qr: qrDataUrl }))
-                .catch(() => ({ ip, url: clientUrl, qr: '' }));
+                .then(qrDataUrl => ({
+                    ip: item.ip,
+                    url: clientUrl,
+                    qr: qrDataUrl,
+                    label: item.label,
+                    interfaceName: item.interfaceName,
+                    recommended: item.recommended
+                }))
+                .catch(() => ({
+                    ip: item.ip,
+                    url: clientUrl,
+                    qr: '',
+                    label: item.label,
+                    interfaceName: item.interfaceName,
+                    recommended: item.recommended
+                }));
         });
 
         Promise.all(promises).then(data => {
             res.end(JSON.stringify({
+                status: 'ok',
+                server: 'running',
+                port: PORT,
+                timestamp: new Date().toISOString(),
                 ips: data,
+                hiddenIps: networkAddresses.hidden.map(item => ({
+                    ip: item.ip,
+                    label: item.label,
+                    interfaceName: item.interfaceName,
+                    reason: item.reason
+                })),
                 clipboard: getLastClipboard(),
                 connectionsCount: connectedClients.size - dashboardClients.size
             }));
@@ -616,17 +729,26 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`   Listening Port: ${PORT}`);
     console.log(`======================================================\n`);
     
-    const ips = getLocalIPs();
+    const networkAddresses = getLocalIPs();
     console.log('1. Connect iPhone to the same local router / Mobile Hotspot.');
     console.log('2. Open your iPhone camera and scan one of the QR codes below:\n');
     
-    ips.forEach(ip => {
-        const clientUrl = `http://${ip}:${PORT}/client.html`;
+    networkAddresses.visible.forEach(item => {
+        const clientUrl = `http://${item.ip}:${PORT}/client.html`;
         console.log(`  🔗 Connection Endpoint: ${clientUrl}`);
-        console.log(`     Scan code for ${ip}:`);
+        console.log(`     ${item.label} (${item.interfaceName})`);
+        console.log(`     Scan code for ${item.ip}:`);
         qrcodeTerminal.generate(clientUrl, { small: true });
         console.log('\n');
     });
+
+    if (networkAddresses.hidden.length > 0) {
+        console.log('Hidden non-primary adapters:');
+        networkAddresses.hidden.forEach(item => {
+            console.log(`  - ${item.ip} (${item.interfaceName}): ${item.reason}`);
+        });
+        console.log('\n');
+    }
 
     console.log(`------------------------------------------------------`);
     console.log(`  🖥️  PC Admin Dashboard: http://localhost:${PORT}/index.html`);

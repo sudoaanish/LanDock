@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "LanDock - Control your PC from your iPhone",
   "main": "index.js",
+  "author": "Aanish Farrukh / sudoaanish",
+  "license": "MIT",
   "scripts": {
     "start": "node index.js",
     "tauri": "tauri"

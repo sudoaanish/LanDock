@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const statusIndicator = document.getElementById('status-indicator');
+    const statusText = document.getElementById('status-text');
     const connectionsCount = document.getElementById('connections-count');
     const connectionList = document.getElementById('connection-list');
     const clipboardArea = document.getElementById('clipboard-area');
@@ -20,11 +21,36 @@ document.addEventListener('DOMContentLoaded', () => {
         return host;
     }
 
+    function showBackendFailure() {
+        statusIndicator.className = 'glow-indicator disconnected';
+        if (statusText) statusText.textContent = 'Backend Offline';
+        updateConnectionsBadge(0);
+
+        connectionList.innerHTML = `
+            <div class="glass-card fade-in" style="padding: 18px; border-color: rgba(248,113,113,0.35); background: rgba(127,29,29,0.18);">
+                <div style="font-weight: 700; color: #fecaca; margin-bottom: 10px;">LanDock backend is not running.</div>
+                <div style="font-size: 13px; line-height: 1.55; color: var(--text-muted); text-align: left;">
+                    <div style="margin-bottom: 8px;">QR codes cannot be generated until the local backend is reachable on port 3731.</div>
+                    <div style="font-weight: 600; color: var(--text-main); margin-bottom: 4px;">Likely causes:</div>
+                    <ul style="margin: 0 0 10px 18px; padding: 0;">
+                        <li>Node.js is missing or not in PATH.</li>
+                        <li>Backend failed to start.</li>
+                        <li>Port 3731 is blocked or already in use.</li>
+                    </ul>
+                    <div style="word-break: break-word;">Check the backend log at <code>%LOCALAPPDATA%\\com.landock.app\\logs\\backend.log</code>. If that file is not present, check <code>%TEMP%\\LanDock\\logs\\backend.log</code>.</div>
+                </div>
+            </div>
+        `;
+    }
+
     // 1. Fetch IP Addresses & QR Codes
     async function loadStatus() {
         try {
             const host = getHost();
             const res = await fetch(`http://${host}/api/status`);
+            if (!res.ok) {
+                throw new Error(`Status API returned HTTP ${res.status}`);
+            }
             const data = await res.json();
             
             // Render QR Cards
@@ -33,8 +59,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 data.ips.forEach(item => {
                     const card = document.createElement('div');
                     card.className = 'qr-card glass-card fade-in';
+                    const label = item.label || 'Network Adapter';
+                    const recommended = item.recommended ? '<div style="font-size: 11px; color: #34d399; font-weight: 700; margin-top: 4px;">Recommended</div>' : '';
                     card.innerHTML = `
                         <div style="font-weight: 600; font-size: 14px; color: var(--accent);">${item.ip}</div>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">${label}</div>
+                        ${recommended}
                         <img src="${item.qr}" alt="QR Code for ${item.ip}">
                         <div class="endpoint-url">${item.url}</div>
                     `;
@@ -52,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateConnectionsBadge(data.connectionsCount || 0);
         } catch (err) {
             console.error('Failed to load status API:', err);
+            showBackendFailure();
             addLog('System', 'Failed to retrieve connection adapters from API.');
         }
     }

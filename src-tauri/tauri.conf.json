@@ -29,11 +29,15 @@
     "active": true,
     "targets": "all",
     "createUpdaterArtifacts": true,
+    "publisher": "Aanish Farrukh / sudoaanish",
+    "license": "MIT",
+    "licenseFile": "../LICENSE",
     "resources": [
       "../index.js",
       "../package.json",
       "../public/**/*",
-      "../node_modules/**/*"
+      "../node_modules/**/*",
+      "../vendor/node/win-x64/node.exe"
     ],
     "icon": [
       "icons/32x32.png",
