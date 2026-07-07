@@ -1,4 +1,18 @@
-# LanDock .gitignore
+# Dependencies
+node_modules/
+jspm_packages/
+
+# Rust / Tauri Build Artifacts
+src-tauri/target/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+*.log
+
+# Shared temporary local transfers (ignoring cached transfer data)
+public/shares/*
+!public/shares/.gitkeep
+
+# Local workspace files (inspirations, logos, private reports)
 workplace/
-landock-release/node_modules/
-.gemini/
