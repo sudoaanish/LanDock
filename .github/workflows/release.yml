@@ -9,15 +9,7 @@ jobs:
   publish-tauri:
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: 'windows-latest'
-          - platform: 'macos-latest'
-          - platform: 'ubuntu-22.04'
-
-    runs-on: ${{ matrix.platform }}
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -29,12 +21,6 @@ jobs:
 
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Linux Dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: Install Node Dependencies
         run: npm ci
@@ -55,11 +41,9 @@ jobs:
             * **Universal Clipboard Sync**: Dynamic sync between Windows and iPhone clipboards.
             * **Bidirectional File Sharing**: Drop files on the desktop app to push to iPhone, or capture/upload from iPhone directly to your Windows Downloads folder.
             * **Win32 Input Emulation**: Multi-touch trackpad gestures (scrolling, clicking, dragging) emulated locally.
-            * **Installer Bundles**: Native installers generated for Windows (`.msi`), macOS (`.dmg`), and Linux (`.deb` / `.AppImage`).
+            * **Installer Bundles**: Native installer generated for Windows (`.msi`).
             
             #### 📦 Installation
             * **Windows**: Download and run `LanDock_${{ github.ref_name }}_x64_en-US.msi`.
-            * **macOS**: Mount `LanDock_${{ github.ref_name }}_universal.dmg` and drag to Applications.
-            * **Linux**: Install the `.deb` package or launch the standalone `.AppImage`.
           releaseDraft: true
           prerelease: false
