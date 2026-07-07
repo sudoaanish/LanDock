@@ -1,0 +1,24 @@
+{
+  "name": "LanDock Remote",
+  "short_name": "LanDock",
+  "description": "Premium Local WiFi Trackpad & Keyboard",
+  "start_url": "/client.html",
+  "display": "standalone",
+  "background_color": "#08090c",
+  "theme_color": "#08090c",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

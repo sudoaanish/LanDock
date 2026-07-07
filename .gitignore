@@ -1,0 +1,4 @@
+# LanDock .gitignore
+workplace/
+landock-release/node_modules/
+.gemini/
