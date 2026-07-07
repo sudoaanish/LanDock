@@ -267,6 +267,18 @@ const MIME_TYPES = {
 
 const server = http.createServer((req, res) => {
     let urlPath = req.url;
+    console.log(`[HTTP] ${req.method} ${urlPath}`);
+
+    // Enable CORS for local network sharing (essential for iOS Safari)
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    if (req.method === 'OPTIONS') {
+        res.statusCode = 204;
+        res.end();
+        return;
+    }
 
     // API Upload Route (iPhone -> PC)
     if (urlPath.startsWith('/api/upload') && req.method === 'POST') {

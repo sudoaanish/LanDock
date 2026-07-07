@@ -593,9 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
             activeUploadXhr = null;
         };
 
-        // Resolve host dynamically
-        const host = getHost();
-        activeUploadXhr.open('POST', `http://${host}/api/upload`, true);
+        activeUploadXhr.open('POST', `/api/upload`, true);
         activeUploadXhr.send(formData);
     }
 
