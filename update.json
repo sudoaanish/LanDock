@@ -1,0 +1,19 @@
+{
+  "version": "1.0.1",
+  "notes": "### LanDock v1.0.1\n\nLanDock turns your Windows PC into a local Wi-Fi hub for your iPhone. Install the Windows MSI, launch LanDock, scan the QR code, and use your iPhone as a local trackpad, keyboard, clipboard bridge, and file drop client.\n\nRelease highlights:\n* Self-contained Windows MSI with bundled Node.js runtime.\n* QR-based local pairing, with Windows Mobile Hotspot support.\n* Recommended hotspot QR target: `192.168.137.1`.\n* iPhone web client with Add to Home Screen support.\n* Clipboard bridge, file transfer, keyboard, and pointer controls.\n\nInstallation:\n* Windows: Download and run the `.msi` installer attached to this release.",
+  "pub_date": "2026-07-07T13:19:36.593Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSd2lSZVV3bFNJNTlXdE1iZmdKclc2b0kxZWU5K0xQS3NhQUlDYmtpU3BSZS9KMFhoQ3FsdS9SY0xtVUZWR21la1VHWTJpZHQrZUFkbjViV2k2SWs2MHNZbmw0TEU3MEE0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNDMwMzcwCWZpbGU6TGFuRG9ja18xLjAuMV94NjRfZW4tVVMubXNpCk4xY1Bhd0Yra3p6OXBmckFLbVlLcHFRVzZRMDZNM2NUTERVVHFCUDVwOEtGTG1VbXpqNFgyUml5MzgxQTZlRGdXdThEa25RMG9jTnZOZm5LcDBQM0RBPT0K",
+      "url": "https://github.com/sudoaanish/LanDock/releases/download/v1.0.1/LanDock_1.0.1_x64_en-US.msi"
+    },
+    "windows-x86_64-msi": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSd2lSZVV3bFNJNTlXdE1iZmdKclc2b0kxZWU5K0xQS3NhQUlDYmtpU3BSZS9KMFhoQ3FsdS9SY0xtVUZWR21la1VHWTJpZHQrZUFkbjViV2k2SWs2MHNZbmw0TEU3MEE0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNDMwMzcwCWZpbGU6TGFuRG9ja18xLjAuMV94NjRfZW4tVVMubXNpCk4xY1Bhd0Yra3p6OXBmckFLbVlLcHFRVzZRMDZNM2NUTERVVHFCUDVwOEtGTG1VbXpqNFgyUml5MzgxQTZlRGdXdThEa25RMG9jTnZOZm5LcDBQM0RBPT0K",
+      "url": "https://github.com/sudoaanish/LanDock/releases/download/v1.0.1/LanDock_1.0.1_x64_en-US.msi"
+    },
+    "windows-x86_64-nsis": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSd2lSZVV3bFNJNXhvOXdqbHZHUkVKK3JseE5BcEFKVnhkbDJhNnltM0NVNVdkMlVzMFQ4cklHNU5IbEppZFR1dlR4K284bGJNemwzQUZoWUJnNU9OUy9PcDlOaEdmTGdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNDMwMzcwCWZpbGU6TGFuRG9ja18xLjAuMV94NjQtc2V0dXAuZXhlCnFteUx6WmozUDdQQUxBQkxKYmMvYmNGSDVveXVndEVibHZkWnNTUFZ1SEVWMEJleUllVmpZdE1qN3JUNUlRTTZNekVDMWptcUVGTGZzaEVaYmNDd0JnPT0K",
+      "url": "https://github.com/sudoaanish/LanDock/releases/download/v1.0.1/LanDock_1.0.1_x64-setup.exe"
+    }
+  }
+}
