@@ -645,7 +645,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fileCard.style.border = '1px solid rgba(255,255,255,0.04)';
         fileCard.style.background = 'rgba(255,255,255,0.01)';
         
-        const host = getHost();
+        const host = window.location.host;
         const fullUrl = `http://${host}${url}`;
 
         fileCard.innerHTML = `
