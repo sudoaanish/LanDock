@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const keyboardTrigger = document.getElementById('keyboard-trigger');
     const hiddenInput = document.getElementById('hidden-input');
     const keyButtons = document.querySelectorAll('.key-btn');
+    const nativeKeyboardOpenClass = 'native-keyboard-open';
     
     // Clipboard Elements
     const clipArea = document.getElementById('clip-area');
@@ -413,9 +414,49 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // 3. VIRTUAL KEYBOARD SYNC LOGIC
     // ==========================================
+    function setNativeKeyboardOpen(isOpen) {
+        document.body.classList.toggle(nativeKeyboardOpenClass, isOpen);
+    }
+
+    function updateNativeKeyboardState() {
+        if (document.activeElement !== hiddenInput) {
+            setNativeKeyboardOpen(false);
+            return;
+        }
+
+        if (!window.visualViewport) {
+            setNativeKeyboardOpen(true);
+            return;
+        }
+
+        const viewportLoss = window.innerHeight - window.visualViewport.height;
+        const keyboardThreshold = Math.max(120, window.innerHeight * 0.18);
+        setNativeKeyboardOpen(viewportLoss > keyboardThreshold);
+    }
+
     keyboardTrigger.addEventListener('click', () => {
-        hiddenInput.focus();
+        try {
+            hiddenInput.focus({ preventScroll: true });
+        } catch (err) {
+            hiddenInput.focus();
+        }
+        requestAnimationFrame(updateNativeKeyboardState);
+        setTimeout(updateNativeKeyboardState, 250);
     });
+
+    hiddenInput.addEventListener('focus', () => {
+        requestAnimationFrame(updateNativeKeyboardState);
+        setTimeout(updateNativeKeyboardState, 250);
+    });
+
+    hiddenInput.addEventListener('blur', () => {
+        setNativeKeyboardOpen(false);
+    });
+
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', updateNativeKeyboardState);
+        window.visualViewport.addEventListener('scroll', updateNativeKeyboardState);
+    }
 
     // Intercept hardware and virtual keyboard inputs on textareas
     hiddenInput.addEventListener('input', (e) => {

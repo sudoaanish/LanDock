@@ -151,10 +151,14 @@
         }
 
         .hidden-textbox {
-            position: absolute;
-            left: -9999px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 1px;
+            height: 1px;
             opacity: 0;
             z-index: -1;
+            transform: translate(-100vw, -100vh);
         }
 
         .keyboard-trigger-btn {
@@ -205,6 +209,53 @@
             width: 18px;
             height: 18px;
             opacity: 0.8;
+        }
+
+        body.native-keyboard-open .keyboard-view {
+            gap: 8px;
+            padding: 10px 12px;
+        }
+
+        body.native-keyboard-open .keyboard-trigger-btn {
+            height: 52px;
+            font-size: 14px;
+            border-radius: 14px;
+        }
+
+        body.native-keyboard-open .keyboard-trigger-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        body.native-keyboard-open .utility-keyboard-grid {
+            gap: 6px;
+        }
+
+        body.native-keyboard-open .key-btn {
+            max-height: 46px;
+            border-radius: 10px;
+            font-size: 11px;
+            gap: 2px;
+        }
+
+        body.native-keyboard-open .key-btn svg {
+            width: 15px;
+            height: 15px;
+        }
+
+        body.native-keyboard-open .bottom-nav {
+            min-height: 48px;
+            padding-bottom: 0;
+        }
+
+        body.native-keyboard-open .nav-item {
+            font-size: 10px;
+            gap: 2px;
+        }
+
+        body.native-keyboard-open .nav-item svg {
+            width: 18px;
+            height: 18px;
         }
 
         /* Clipboard Tab */
