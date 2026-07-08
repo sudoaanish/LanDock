@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "LanDock",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "identifier": "com.landock.app",
   "build": {
     "frontendDist": "../public",
@@ -53,7 +53,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://raw.githubusercontent.com/sudoaanish/LanDock/main/update.json"
+        "https://github.com/sudoaanish/LanDock/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU3ODg1NEMyOTQxNzg5NzAKUldSd2lSZVV3bFNJNTJQSnEyd1dLVTFCYUhjNGR1QTdSODZ6dkhsVGFLVENnNXVnUkFRcUliTVMK",
       "active": true

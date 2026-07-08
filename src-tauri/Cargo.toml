@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "1.0.1"
+version = "1.0.2"
 description = "LanDock Hub - PC Control & File Share"
 authors = ["Aanish Farrukh"]
 license = "MIT"
