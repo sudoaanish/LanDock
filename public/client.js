@@ -80,6 +80,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. SOCKET CONNECTION MANAGEMENT
     // ==========================================
     function connectSocket() {
+        connIndicator.className = 'glow-indicator disconnected';
+        connStatusText.textContent = 'Connecting...';
+        connStatusText.style.color = 'var(--text-muted)';
+
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
         socket = new WebSocket(`${protocol}//${host}`);
@@ -116,7 +120,8 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.onclose = () => {
             isConnected = false;
             connIndicator.className = 'glow-indicator disconnected';
-            connStatusText.textContent = 'Connecting...';
+            connStatusText.textContent = 'Reconnecting...';
+            connStatusText.style.color = 'var(--text-muted)';
             latencyVal.textContent = '-- ms';
             stopPinger();
             
