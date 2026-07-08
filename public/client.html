@@ -212,14 +212,15 @@
         }
 
         body.native-keyboard-open .keyboard-view {
-            gap: 8px;
-            padding: 10px 12px;
+            gap: 5px;
+            padding: 6px 10px;
         }
 
         body.native-keyboard-open .keyboard-trigger-btn {
-            height: 52px;
-            font-size: 14px;
-            border-radius: 14px;
+            height: 44px;
+            font-size: 13px;
+            gap: 6px;
+            border-radius: 12px;
         }
 
         body.native-keyboard-open .keyboard-trigger-btn svg {
@@ -228,13 +229,18 @@
         }
 
         body.native-keyboard-open .utility-keyboard-grid {
-            gap: 6px;
+            flex-grow: 0;
+            grid-auto-rows: 34px;
+            gap: 4px 6px;
+            align-content: start;
         }
 
         body.native-keyboard-open .key-btn {
-            max-height: 46px;
-            border-radius: 10px;
-            font-size: 11px;
+            height: 34px;
+            max-height: 34px;
+            min-height: 0;
+            border-radius: 9px;
+            font-size: 10px;
             gap: 2px;
         }
 
