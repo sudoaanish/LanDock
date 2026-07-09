@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.1.0 - Typing Preview and modifier controls
+
+- Added a Typing Preview panel to the iPhone Keyboard tab.
+- Typing Preview mirrors native iOS keyboard input while preserving LanDock's live desktop typing behavior.
+- Added Clear Preview for the local preview.
+- Added stacked SHIFT / CTRL modifier controls.
+- Added tap-to-arm and tap-again-to-cancel modifier behavior.
+- Added hold-to-modify support for iPhone multi-touch.
+- Added supported Shift/Ctrl utility key combinations.
+- Preserved existing touchpad, clipboard, files, QR/network, updater, and WebSocket behavior.
+
+Notes:
+
+- Typing Preview is a live mirror, not a required send buffer.
+- Screen tab / Screen Peek is not included in v1.1.0.
+- Command macros and clipboard history are planned for later v1.1.x releases.
+- Updater endpoint remains GitHub Releases `latest.json`.
+
 ## v1.0.3 - Dogfood polish
 
 - Improved iPhone client connection state copy so initial connection and reconnect attempts are clearer.
