@@ -211,6 +211,26 @@
             opacity: 0.8;
         }
 
+        .modifier-pad {
+            grid-row: span 2;
+            display: grid;
+            grid-template-rows: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .modifier-key {
+            max-height: none;
+            height: 100%;
+            color: var(--text-muted);
+        }
+
+        .modifier-key.active {
+            color: white;
+            border-color: rgba(6, 182, 212, 0.65);
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.34), rgba(168, 85, 247, 0.28));
+            box-shadow: 0 0 16px rgba(6, 182, 212, 0.18);
+        }
+
         .typing-preview-panel {
             flex-shrink: 0;
             min-height: 96px;
@@ -302,6 +322,15 @@
         body.native-keyboard-open .key-btn svg {
             width: 15px;
             height: 15px;
+        }
+
+        body.native-keyboard-open .modifier-pad {
+            gap: 7px;
+        }
+
+        body.native-keyboard-open .modifier-key {
+            height: 100%;
+            max-height: none;
         }
 
         body.native-keyboard-open .typing-preview-panel {
@@ -660,12 +689,14 @@
                 <button class="key-btn" data-key-idx="13"><span>HOME</span></button>
                 <button class="key-btn" data-key-idx="11"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg><span>UP</span></button>
                 <button class="key-btn" data-key-idx="14"><span>END</span></button>
-                <button class="key-btn" style="visibility: hidden;"></button>
+                <div class="modifier-pad">
+                    <button class="key-btn modifier-key" type="button" data-modifier="shift"><span>SHIFT</span></button>
+                    <button class="key-btn modifier-key" type="button" data-modifier="ctrl"><span>CTRL</span></button>
+                </div>
 
                 <button class="key-btn" data-key-idx="9"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span>LEFT</span></button>
                 <button class="key-btn" data-key-idx="12"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg><span>DOWN</span></button>
                 <button class="key-btn" data-key-idx="10"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span>RIGHT</span></button>
-                <button class="key-btn" style="visibility: hidden;"></button>
             </div>
 
             <div class="typing-preview-panel">

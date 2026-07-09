@@ -179,6 +179,42 @@ const InputEmulator = {
                 }
             }
         ]);
+    },
+    sendKeyCombo: (modifierVkCodes, keyVkCode) => {
+        const inputs = [];
+
+        modifierVkCodes.forEach(vkCode => {
+            inputs.push({
+                type: 1,
+                u: {
+                    ki: { wVk: vkCode, wScan: 0, dwFlags: 0, time: 0, dwExtraInfo: 0 }
+                }
+            });
+        });
+
+        inputs.push({
+            type: 1,
+            u: {
+                ki: { wVk: keyVkCode, wScan: 0, dwFlags: 0, time: 0, dwExtraInfo: 0 }
+            }
+        });
+        inputs.push({
+            type: 1,
+            u: {
+                ki: { wVk: keyVkCode, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 }
+            }
+        });
+
+        modifierVkCodes.slice().reverse().forEach(vkCode => {
+            inputs.push({
+                type: 1,
+                u: {
+                    ki: { wVk: vkCode, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 }
+                }
+            });
+        });
+
+        emulateInput(inputs);
     }
 };
 
@@ -204,6 +240,59 @@ const KEY_MAP = {
     18: 0x1B, // Escape (VK_ESCAPE)
     19: 0x20  // Space (VK_SPACE)
 };
+
+const MODIFIER_KEY_MAP = {
+    shift: 0x10, // VK_SHIFT
+    ctrl: 0x11   // VK_CONTROL
+};
+
+const COMBO_KEY_MAP = {
+    left: 0x25,
+    right: 0x27,
+    up: 0x26,
+    down: 0x28,
+    backspace: 0x08,
+    delete: 0x2E,
+    enter: 0x0D
+};
+
+const SUPPORTED_KEY_COMBOS = new Set([
+    'shift:enter',
+    'shift:backspace',
+    'shift:left',
+    'shift:right',
+    'shift:up',
+    'shift:down',
+    'ctrl:left',
+    'ctrl:right',
+    'ctrl:up',
+    'ctrl:down',
+    'ctrl:backspace',
+    'ctrl:delete'
+]);
+
+function sendSupportedKeyCombo(modifiers, key) {
+    if (!Array.isArray(modifiers) || modifiers.length !== 1 || typeof key !== 'string') {
+        return false;
+    }
+
+    const modifier = String(modifiers[0]).toLowerCase();
+    const keyName = key.toLowerCase();
+    const comboId = `${modifier}:${keyName}`;
+
+    if (!SUPPORTED_KEY_COMBOS.has(comboId)) {
+        return false;
+    }
+
+    const modifierVkCode = MODIFIER_KEY_MAP[modifier];
+    const keyVkCode = COMBO_KEY_MAP[keyName];
+    if (!modifierVkCode || !keyVkCode) {
+        return false;
+    }
+
+    InputEmulator.sendKeyCombo([modifierVkCode], keyVkCode);
+    return true;
+}
 
 // ==========================================
 // 2. NETWORK & CLIPBOARD UTILITIES
@@ -661,6 +750,13 @@ wss.on('connection', (ws) => {
                 if (payload.type === 'clipboard_push') {
                     setSystemClipboard(payload.text);
                     logEvent(`Clipboard Push: "${payload.text.substring(0, 30)}${payload.text.length > 30 ? '...' : ''}"`);
+                } else if (payload.type === 'key_combo') {
+                    const sent = sendSupportedKeyCombo(payload.modifiers, payload.key);
+                    if (sent) {
+                        logEvent(`Key Combo: ${payload.modifiers.join('+')}+${payload.key}`);
+                    } else {
+                        logEvent('Ignored unsupported key combo request.');
+                    }
                 } else if (payload.type === 'register_dashboard') {
                     ws.isDashboard = true;
                     dashboardClients.add(ws);

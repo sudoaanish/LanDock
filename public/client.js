@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const keyboardTrigger = document.getElementById('keyboard-trigger');
     const hiddenInput = document.getElementById('hidden-input');
     const keyButtons = document.querySelectorAll('.key-btn');
+    const modifierButtons = document.querySelectorAll('.modifier-key');
     const typingPreviewText = document.getElementById('typing-preview-text');
     const typingPreviewClear = document.getElementById('typing-preview-clear');
     const nativeKeyboardOpenClass = 'native-keyboard-open';
@@ -39,6 +40,30 @@ document.addEventListener('DOMContentLoaded', () => {
     let latencyInterval;
     let pingTime = 0;
     let typingPreviewBuffer = '';
+    let activeModifier = null;
+    const comboKeyNames = {
+        9: 'left',
+        10: 'right',
+        11: 'up',
+        12: 'down',
+        15: 'backspace',
+        16: 'delete',
+        17: 'enter'
+    };
+    const supportedModifierCombos = new Set([
+        'shift:enter',
+        'shift:backspace',
+        'shift:left',
+        'shift:right',
+        'shift:up',
+        'shift:down',
+        'ctrl:left',
+        'ctrl:right',
+        'ctrl:up',
+        'ctrl:down',
+        'ctrl:backspace',
+        'ctrl:delete'
+    ]);
     
     // Configuration Loaded from LocalStorage
     let naturalScroll = localStorage.getItem('naturalScroll') !== 'false';
@@ -497,6 +522,40 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function renderModifierState() {
+        modifierButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-modifier') === activeModifier);
+        });
+    }
+
+    function clearActiveModifier() {
+        activeModifier = null;
+        renderModifierState();
+    }
+
+    function sendKeyCombo(modifier, keyName) {
+        if (!modifier || !keyName || !supportedModifierCombos.has(`${modifier}:${keyName}`)) {
+            return false;
+        }
+
+        if (isConnected && socket.readyState === 1) {
+            socket.send(JSON.stringify({
+                type: 'key_combo',
+                modifiers: [modifier],
+                key: keyName
+            }));
+        }
+        return true;
+    }
+
+    modifierButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const modifier = btn.getAttribute('data-modifier');
+            activeModifier = activeModifier === modifier ? null : modifier;
+            renderModifierState();
+        });
+    });
+
     // Intercept hardware and virtual keyboard inputs on textareas
     hiddenInput.addEventListener('input', (e) => {
         const text = e.target.value;
@@ -536,7 +595,14 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', () => {
             const keyIdx = btn.getAttribute('data-key-idx');
             if (keyIdx !== null && isConnected && socket.readyState === 1) {
-                socket.send(`k${keyIdx}`);
+                const keyName = comboKeyNames[keyIdx];
+                const sentCombo = activeModifier ? sendKeyCombo(activeModifier, keyName) : false;
+
+                if (sentCombo) {
+                    clearActiveModifier();
+                } else {
+                    socket.send(`k${keyIdx}`);
+                }
                 
                 // Visual feedback trigger
                 btn.style.transform = 'scale(0.93)';
