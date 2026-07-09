@@ -43,7 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeModifier = null;
     let heldModifier = null;
     let modifierPointerId = null;
+    let modifierTouchId = null;
     let modifierHoldStarted = false;
+    let heldModifierUsed = false;
     let modifierHoldTimer = null;
     const modifierHoldThresholdMs = 180;
     const comboKeyNames = {
@@ -542,12 +544,51 @@ document.addEventListener('DOMContentLoaded', () => {
     function clearHeldModifier() {
         heldModifier = null;
         modifierPointerId = null;
+        modifierTouchId = null;
         modifierHoldStarted = false;
+        heldModifierUsed = false;
         if (modifierHoldTimer) {
             clearTimeout(modifierHoldTimer);
             modifierHoldTimer = null;
         }
         renderModifierState();
+    }
+
+    function beginModifierHold(modifier) {
+        if (!modifier) return;
+
+        if (modifierHoldTimer) {
+            clearTimeout(modifierHoldTimer);
+        }
+
+        modifierHoldStarted = false;
+        heldModifierUsed = false;
+        heldModifier = modifier;
+        renderModifierState();
+
+        modifierHoldTimer = setTimeout(() => {
+            modifierHoldStarted = true;
+            renderModifierState();
+        }, modifierHoldThresholdMs);
+    }
+
+    function endModifierHold(modifier) {
+        const shouldToggle = !modifierHoldStarted && !heldModifierUsed;
+        clearHeldModifier();
+
+        if (shouldToggle && modifier) {
+            activeModifier = activeModifier === modifier ? null : modifier;
+            renderModifierState();
+        }
+    }
+
+    function findChangedTouch(touchList, identifier) {
+        for (let i = 0; i < touchList.length; i++) {
+            if (touchList[i].identifier === identifier) {
+                return touchList[i];
+            }
+        }
+        return null;
     }
 
     function sendKeyCombo(modifier, keyName) {
@@ -567,46 +608,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
     modifierButtons.forEach(btn => {
         btn.addEventListener('pointerdown', (e) => {
+            if (e.pointerType === 'touch') return;
             e.preventDefault();
             const modifier = btn.getAttribute('data-modifier');
             if (!modifier) return;
 
-            if (modifierHoldTimer) {
-                clearTimeout(modifierHoldTimer);
-            }
-
             modifierPointerId = e.pointerId;
-            modifierHoldStarted = false;
-            heldModifier = modifier;
-            renderModifierState();
-
-            try {
-                btn.setPointerCapture(e.pointerId);
-            } catch (err) {
-                // Some older WebViews may not support pointer capture.
-            }
-
-            modifierHoldTimer = setTimeout(() => {
-                modifierHoldStarted = true;
-                renderModifierState();
-            }, modifierHoldThresholdMs);
+            beginModifierHold(modifier);
         });
 
         btn.addEventListener('pointerup', (e) => {
+            if (e.pointerType === 'touch') return;
             e.preventDefault();
             const modifier = btn.getAttribute('data-modifier');
-            const shouldToggle = modifierPointerId === e.pointerId && !modifierHoldStarted;
-            clearHeldModifier();
-
-            if (shouldToggle && modifier) {
-                activeModifier = activeModifier === modifier ? null : modifier;
-                renderModifierState();
+            if (modifierPointerId === e.pointerId) {
+                endModifierHold(modifier);
             }
         });
 
-        btn.addEventListener('pointercancel', clearHeldModifier);
-        btn.addEventListener('lostpointercapture', () => {
-            if (modifierPointerId !== null) {
+        btn.addEventListener('pointercancel', (e) => {
+            if (e.pointerType !== 'touch' && modifierPointerId === e.pointerId) {
+                clearHeldModifier();
+            }
+        });
+
+        btn.addEventListener('touchstart', (e) => {
+            if (modifierTouchId !== null || e.changedTouches.length === 0) return;
+
+            e.preventDefault();
+            const modifier = btn.getAttribute('data-modifier');
+            if (!modifier) return;
+
+            modifierTouchId = e.changedTouches[0].identifier;
+            beginModifierHold(modifier);
+        }, { passive: false });
+
+        btn.addEventListener('touchend', (e) => {
+            if (modifierTouchId === null || !findChangedTouch(e.changedTouches, modifierTouchId)) {
+                return;
+            }
+
+            e.preventDefault();
+            const modifier = btn.getAttribute('data-modifier');
+            endModifierHold(modifier);
+        }, { passive: false });
+
+        btn.addEventListener('touchcancel', (e) => {
+            if (modifierTouchId !== null && findChangedTouch(e.changedTouches, modifierTouchId)) {
                 clearHeldModifier();
             }
         });
@@ -631,7 +679,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function clearModifierAfterCombo(modifier) {
-        if (modifier === activeModifier && !heldModifier) {
+        if (modifier === heldModifier) {
+            heldModifierUsed = true;
+            renderModifierState();
+        } else if (modifier === activeModifier) {
             clearActiveModifier();
         } else {
             renderModifierState();
@@ -672,28 +723,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    function activateUtilityKey(btn) {
+        const keyIdx = btn.getAttribute('data-key-idx');
+        if (keyIdx !== null && isConnected && socket.readyState === 1) {
+            const keyName = comboKeyNames[keyIdx];
+            const modifier = getActiveModifierForKey();
+            const sentCombo = modifier ? sendKeyCombo(modifier, keyName) : false;
+
+            if (sentCombo) {
+                clearModifierAfterCombo(modifier);
+            } else {
+                socket.send(`k${keyIdx}`);
+                if (modifier === activeModifier && !heldModifier) {
+                    clearActiveModifier();
+                }
+            }
+
+            // Visual feedback trigger
+            btn.style.transform = 'scale(0.93)';
+            setTimeout(() => btn.style.transform = '', 100);
+        }
+    }
+
     // Handle manual key matrix buttons
     keyButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('touchend', (e) => {
             const keyIdx = btn.getAttribute('data-key-idx');
-            if (keyIdx !== null && isConnected && socket.readyState === 1) {
-                const keyName = comboKeyNames[keyIdx];
-                const modifier = getActiveModifierForKey();
-                const sentCombo = modifier ? sendKeyCombo(modifier, keyName) : false;
+            if (keyIdx === null) return;
 
-                if (sentCombo) {
-                    clearModifierAfterCombo(modifier);
-                } else {
-                    socket.send(`k${keyIdx}`);
-                    if (modifier === activeModifier && !heldModifier) {
-                        clearActiveModifier();
-                    }
-                }
-                
-                // Visual feedback trigger
-                btn.style.transform = 'scale(0.93)';
-                setTimeout(() => btn.style.transform = '', 100);
+            e.preventDefault();
+            btn.dataset.touchHandled = '1';
+            activateUtilityKey(btn);
+            setTimeout(() => {
+                delete btn.dataset.touchHandled;
+            }, 450);
+        }, { passive: false });
+
+        btn.addEventListener('click', (e) => {
+            if (btn.dataset.touchHandled === '1') {
+                e.preventDefault();
+                return;
             }
+
+            activateUtilityKey(btn);
         });
     });
 
