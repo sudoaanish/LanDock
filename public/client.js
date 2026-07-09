@@ -41,6 +41,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let pingTime = 0;
     let typingPreviewBuffer = '';
     let activeModifier = null;
+    let heldModifier = null;
+    let modifierPointerId = null;
+    let modifierHoldStarted = false;
+    let modifierHoldTimer = null;
+    const modifierHoldThresholdMs = 180;
     const comboKeyNames = {
         9: 'left',
         10: 'right',
@@ -524,12 +529,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderModifierState() {
         modifierButtons.forEach(btn => {
-            btn.classList.toggle('active', btn.getAttribute('data-modifier') === activeModifier);
+            const modifier = btn.getAttribute('data-modifier');
+            btn.classList.toggle('active', modifier === heldModifier || modifier === activeModifier);
         });
     }
 
     function clearActiveModifier() {
         activeModifier = null;
+        renderModifierState();
+    }
+
+    function clearHeldModifier() {
+        heldModifier = null;
+        modifierPointerId = null;
+        modifierHoldStarted = false;
+        if (modifierHoldTimer) {
+            clearTimeout(modifierHoldTimer);
+            modifierHoldTimer = null;
+        }
         renderModifierState();
     }
 
@@ -549,12 +566,77 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     modifierButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
             const modifier = btn.getAttribute('data-modifier');
-            activeModifier = activeModifier === modifier ? null : modifier;
+            if (!modifier) return;
+
+            if (modifierHoldTimer) {
+                clearTimeout(modifierHoldTimer);
+            }
+
+            modifierPointerId = e.pointerId;
+            modifierHoldStarted = false;
+            heldModifier = modifier;
             renderModifierState();
+
+            try {
+                btn.setPointerCapture(e.pointerId);
+            } catch (err) {
+                // Some older WebViews may not support pointer capture.
+            }
+
+            modifierHoldTimer = setTimeout(() => {
+                modifierHoldStarted = true;
+                renderModifierState();
+            }, modifierHoldThresholdMs);
+        });
+
+        btn.addEventListener('pointerup', (e) => {
+            e.preventDefault();
+            const modifier = btn.getAttribute('data-modifier');
+            const shouldToggle = modifierPointerId === e.pointerId && !modifierHoldStarted;
+            clearHeldModifier();
+
+            if (shouldToggle && modifier) {
+                activeModifier = activeModifier === modifier ? null : modifier;
+                renderModifierState();
+            }
+        });
+
+        btn.addEventListener('pointercancel', clearHeldModifier);
+        btn.addEventListener('lostpointercapture', () => {
+            if (modifierPointerId !== null) {
+                clearHeldModifier();
+            }
+        });
+
+        btn.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
         });
     });
+
+    window.addEventListener('blur', () => {
+        if (heldModifier) {
+            clearHeldModifier();
+        }
+    });
+
+    function getActiveModifierForKey() {
+        return heldModifier || activeModifier;
+    }
+
+    function clearModifierAfterCombo(modifier) {
+        if (modifier === activeModifier && !heldModifier) {
+            clearActiveModifier();
+        } else {
+            renderModifierState();
+        }
+    }
 
     // Intercept hardware and virtual keyboard inputs on textareas
     hiddenInput.addEventListener('input', (e) => {
@@ -596,12 +678,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const keyIdx = btn.getAttribute('data-key-idx');
             if (keyIdx !== null && isConnected && socket.readyState === 1) {
                 const keyName = comboKeyNames[keyIdx];
-                const sentCombo = activeModifier ? sendKeyCombo(activeModifier, keyName) : false;
+                const modifier = getActiveModifierForKey();
+                const sentCombo = modifier ? sendKeyCombo(modifier, keyName) : false;
 
                 if (sentCombo) {
-                    clearActiveModifier();
+                    clearModifierAfterCombo(modifier);
                 } else {
                     socket.send(`k${keyIdx}`);
+                    if (modifier === activeModifier && !heldModifier) {
+                        clearActiveModifier();
+                    }
                 }
                 
                 // Visual feedback trigger

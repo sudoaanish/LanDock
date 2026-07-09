@@ -221,7 +221,12 @@
         .modifier-key {
             max-height: none;
             height: 100%;
-            color: var(--text-muted);
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.055);
+            border-color: rgba(255, 255, 255, 0.1);
+            font-size: 12px;
+            letter-spacing: 0.03em;
+            touch-action: none;
         }
 
         .modifier-key.active {
@@ -331,6 +336,8 @@
         body.native-keyboard-open .modifier-key {
             height: 100%;
             max-height: none;
+            font-size: 10px;
+            letter-spacing: 0.02em;
         }
 
         body.native-keyboard-open .typing-preview-panel {
