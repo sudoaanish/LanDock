@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const keyboardTrigger = document.getElementById('keyboard-trigger');
     const hiddenInput = document.getElementById('hidden-input');
     const keyButtons = document.querySelectorAll('.key-btn');
+    const typingPreviewText = document.getElementById('typing-preview-text');
+    const typingPreviewClear = document.getElementById('typing-preview-clear');
     const nativeKeyboardOpenClass = 'native-keyboard-open';
     
     // Clipboard Elements
@@ -36,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isConnected = false;
     let latencyInterval;
     let pingTime = 0;
+    let typingPreviewBuffer = '';
     
     // Configuration Loaded from LocalStorage
     let naturalScroll = localStorage.getItem('naturalScroll') !== 'false';
@@ -458,10 +461,47 @@ document.addEventListener('DOMContentLoaded', () => {
         window.visualViewport.addEventListener('scroll', updateNativeKeyboardState);
     }
 
+    function renderTypingPreview() {
+        if (!typingPreviewText) return;
+
+        if (typingPreviewBuffer.length === 0) {
+            typingPreviewText.textContent = 'Typed text will appear here.';
+            typingPreviewText.classList.add('empty');
+            return;
+        }
+
+        typingPreviewText.textContent = typingPreviewBuffer;
+        typingPreviewText.classList.remove('empty');
+        typingPreviewText.scrollTop = typingPreviewText.scrollHeight;
+    }
+
+    function appendTypingPreview(text) {
+        typingPreviewBuffer += text;
+        renderTypingPreview();
+    }
+
+    function backspaceTypingPreview() {
+        typingPreviewBuffer = typingPreviewBuffer.slice(0, -1);
+        renderTypingPreview();
+    }
+
+    if (typingPreviewClear) {
+        typingPreviewClear.addEventListener('click', () => {
+            typingPreviewBuffer = '';
+            renderTypingPreview();
+            try {
+                hiddenInput.focus({ preventScroll: true });
+            } catch (err) {
+                hiddenInput.focus();
+            }
+        });
+    }
+
     // Intercept hardware and virtual keyboard inputs on textareas
     hiddenInput.addEventListener('input', (e) => {
         const text = e.target.value;
         if (text.length > 0) {
+            appendTypingPreview(text);
             if (isConnected && socket.readyState === 1) {
                 socket.send(`t${text}`);
             }
@@ -472,9 +512,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Capture special keys (Backspace, Enter, Space) via standard keydowns
     hiddenInput.addEventListener('keydown', (e) => {
         let keyIdx = -1;
-        if (e.key === 'Backspace') keyIdx = 15;
-        else if (e.key === 'Enter') keyIdx = 17;
-        else if (e.key === ' ') keyIdx = 19;
+        if (e.key === 'Backspace') {
+            keyIdx = 15;
+            backspaceTypingPreview();
+        } else if (e.key === 'Enter') {
+            keyIdx = 17;
+            appendTypingPreview('\n');
+        } else if (e.key === ' ') {
+            keyIdx = 19;
+            appendTypingPreview(' ');
+        }
         
         if (keyIdx !== -1) {
             e.preventDefault();

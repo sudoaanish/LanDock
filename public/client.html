@@ -211,6 +211,61 @@
             opacity: 0.8;
         }
 
+        .typing-preview-panel {
+            flex-shrink: 0;
+            min-height: 96px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(255, 255, 255, 0.035);
+        }
+
+        .typing-preview-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .typing-preview-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-main);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .typing-preview-clear {
+            height: 28px;
+            padding: 0 10px;
+            border-radius: 9px;
+            font-size: 11px;
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            box-shadow: none;
+        }
+
+        .typing-preview-text {
+            flex: 1;
+            min-height: 42px;
+            max-height: 86px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 15px;
+            line-height: 1.35;
+            color: var(--text-main);
+        }
+
+        .typing-preview-text.empty {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
         body.native-keyboard-open .keyboard-view {
             gap: 5px;
             padding: 6px 10px;
@@ -247,6 +302,30 @@
         body.native-keyboard-open .key-btn svg {
             width: 15px;
             height: 15px;
+        }
+
+        body.native-keyboard-open .typing-preview-panel {
+            min-height: 72px;
+            gap: 5px;
+            padding: 8px 10px;
+            border-radius: 12px;
+        }
+
+        body.native-keyboard-open .typing-preview-title {
+            font-size: 11px;
+        }
+
+        body.native-keyboard-open .typing-preview-clear {
+            height: 24px;
+            padding: 0 8px;
+            font-size: 10px;
+        }
+
+        body.native-keyboard-open .typing-preview-text {
+            min-height: 32px;
+            max-height: 44px;
+            font-size: 13px;
+            line-height: 1.25;
         }
 
         body.native-keyboard-open .bottom-nav {
@@ -587,6 +666,14 @@
                 <button class="key-btn" data-key-idx="12"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg><span>DOWN</span></button>
                 <button class="key-btn" data-key-idx="10"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span>RIGHT</span></button>
                 <button class="key-btn" style="visibility: hidden;"></button>
+            </div>
+
+            <div class="typing-preview-panel">
+                <div class="typing-preview-header">
+                    <span class="typing-preview-title">Typing Preview</span>
+                    <button id="typing-preview-clear" class="typing-preview-clear" type="button">Clear</button>
+                </div>
+                <div id="typing-preview-text" class="typing-preview-text empty">Typed text will appear here.</div>
             </div>
         </div>
 
