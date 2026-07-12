@@ -1,6 +1,6 @@
 {
   "name": "landock",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "LanDock - Control your PC from your iPhone",
   "main": "index.js",
   "author": "Aanish Farrukh / sudoaanish",

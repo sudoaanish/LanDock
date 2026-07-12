@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.1.1 - Keyboard command layer
+
+- Added a compact Commands section to the iPhone Keyboard tab.
+- Added editing commands for Select All, Copy, Paste, Cut, Undo, Redo, and Save.
+- Added browser commands for Find, Reload, New Tab, and Close Tab.
+- Added navigation/system commands for Esc, Tab, and Alt+Tab.
+- Replaced the redundant command-layer Win chip with Save while preserving the existing large WIN utility key.
+- Added explicit whitelisted backend handling for command buttons.
+- Suppressed duplicate iPhone synthetic clicks for command buttons.
+- Preserved Typing Preview, live desktop typing, Shift/Ctrl modifier behavior, touchpad, clipboard, files, QR/network, updater, and WebSocket behavior.
+
+Notes:
+
+- Command buttons use fixed whitelisted actions, not arbitrary key injection.
+- Typing Preview remains a live mirror, not a required send buffer.
+- Screen tab / Screen Peek is not included in v1.1.1.
+- Clipboard history, snippets, and templates are planned for later.
+- Updater endpoint remains GitHub Releases `latest.json`.
+
 ## v1.1.0 - Typing Preview and modifier controls
 
 - Added a Typing Preview panel to the iPhone Keyboard tab.
