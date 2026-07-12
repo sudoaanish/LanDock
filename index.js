@@ -285,7 +285,7 @@ const SUPPORTED_COMMANDS = Object.freeze({
     escape: { key: 0x1B },
     tab: { key: 0x09 },
     alt_tab: { modifiers: [0x12], key: 0x09 },
-    win: { key: 0x5B }
+    save: { modifiers: [0x11], key: 0x53 }
 });
 
 function sendSupportedKeyCombo(modifiers, key) {
