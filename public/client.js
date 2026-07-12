@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const hiddenInput = document.getElementById('hidden-input');
     const keyButtons = document.querySelectorAll('.key-btn');
     const modifierButtons = document.querySelectorAll('.modifier-key');
+    const commandButtons = document.querySelectorAll('.command-btn');
     const typingPreviewText = document.getElementById('typing-preview-text');
     const typingPreviewClear = document.getElementById('typing-preview-clear');
     const nativeKeyboardOpenClass = 'native-keyboard-open';
@@ -766,6 +767,35 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             activateUtilityKey(btn);
+        });
+    });
+
+    function activateCommand(btn) {
+        const command = btn.getAttribute('data-command');
+        if (!command || !isConnected || socket.readyState !== 1) return;
+
+        socket.send(JSON.stringify({ type: 'command', command }));
+        btn.style.transform = 'scale(0.94)';
+        setTimeout(() => btn.style.transform = '', 100);
+    }
+
+    commandButtons.forEach(btn => {
+        btn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            btn.dataset.touchHandled = '1';
+            activateCommand(btn);
+            setTimeout(() => {
+                delete btn.dataset.touchHandled;
+            }, 450);
+        }, { passive: false });
+
+        btn.addEventListener('click', (e) => {
+            if (btn.dataset.touchHandled === '1') {
+                e.preventDefault();
+                return;
+            }
+
+            activateCommand(btn);
         });
     });
 

@@ -271,6 +271,23 @@ const SUPPORTED_KEY_COMBOS = new Set([
     'ctrl:delete'
 ]);
 
+const SUPPORTED_COMMANDS = Object.freeze({
+    select_all: { modifiers: [0x11], key: 0x41 },
+    copy: { modifiers: [0x11], key: 0x43 },
+    paste: { modifiers: [0x11], key: 0x56 },
+    cut: { modifiers: [0x11], key: 0x58 },
+    undo: { modifiers: [0x11], key: 0x5A },
+    redo: { modifiers: [0x11], key: 0x59 },
+    find: { modifiers: [0x11], key: 0x46 },
+    refresh: { modifiers: [0x11], key: 0x52 },
+    new_tab: { modifiers: [0x11], key: 0x54 },
+    close_tab: { modifiers: [0x11], key: 0x57 },
+    escape: { key: 0x1B },
+    tab: { key: 0x09 },
+    alt_tab: { modifiers: [0x12], key: 0x09 },
+    win: { key: 0x5B }
+});
+
 function sendSupportedKeyCombo(modifiers, key) {
     if (!Array.isArray(modifiers) || modifiers.length !== 1 || typeof key !== 'string') {
         return false;
@@ -291,6 +308,24 @@ function sendSupportedKeyCombo(modifiers, key) {
     }
 
     InputEmulator.sendKeyCombo([modifierVkCode], keyVkCode);
+    return true;
+}
+
+function sendSupportedCommand(command) {
+    if (typeof command !== 'string') {
+        return false;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(SUPPORTED_COMMANDS, command)) {
+        return false;
+    }
+
+    const action = SUPPORTED_COMMANDS[command];
+    if (action.modifiers) {
+        InputEmulator.sendKeyCombo(action.modifiers, action.key);
+    } else {
+        InputEmulator.sendSpecialKey(action.key);
+    }
     return true;
 }
 
@@ -756,6 +791,13 @@ wss.on('connection', (ws) => {
                         logEvent(`Key Combo: ${payload.modifiers.join('+')}+${payload.key}`);
                     } else {
                         logEvent('Ignored unsupported key combo request.');
+                    }
+                } else if (payload.type === 'command') {
+                    const sent = sendSupportedCommand(payload.command);
+                    if (sent) {
+                        logEvent(`Keyboard Command: ${payload.command}`);
+                    } else {
+                        logEvent('Ignored unsupported keyboard command request.');
                     }
                 } else if (payload.type === 'register_dashboard') {
                     ws.isDashboard = true;

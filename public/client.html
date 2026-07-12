@@ -236,6 +236,50 @@
             box-shadow: 0 0 16px rgba(6, 182, 212, 0.18);
         }
 
+        .keyboard-commands {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            padding: 9px 10px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.025);
+        }
+
+        .keyboard-commands-title {
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .keyboard-commands-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 6px;
+        }
+
+        .command-btn {
+            min-width: 0;
+            height: 32px;
+            padding: 0 4px;
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 9px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            box-shadow: none;
+            font-size: 10px;
+            font-weight: 650;
+            touch-action: manipulation;
+        }
+
+        .command-btn:active {
+            border-color: rgba(6, 182, 212, 0.55);
+            background: rgba(6, 182, 212, 0.18);
+            color: white;
+        }
+
         .typing-preview-panel {
             flex-shrink: 0;
             min-height: 96px;
@@ -338,6 +382,28 @@
             max-height: none;
             font-size: 10px;
             letter-spacing: 0.02em;
+        }
+
+        body.native-keyboard-open .keyboard-commands {
+            gap: 4px;
+            padding: 5px 6px 6px;
+            border-radius: 10px;
+        }
+
+        body.native-keyboard-open .keyboard-commands-title {
+            display: none;
+        }
+
+        body.native-keyboard-open .keyboard-commands-grid {
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 4px;
+        }
+
+        body.native-keyboard-open .command-btn {
+            height: 27px;
+            padding: 0 2px;
+            border-radius: 7px;
+            font-size: 9px;
         }
 
         body.native-keyboard-open .typing-preview-panel {
@@ -705,6 +771,26 @@
                 <button class="key-btn" data-key-idx="12"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg><span>DOWN</span></button>
                 <button class="key-btn" data-key-idx="10"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span>RIGHT</span></button>
             </div>
+
+            <section class="keyboard-commands" aria-labelledby="keyboard-commands-title">
+                <span id="keyboard-commands-title" class="keyboard-commands-title">Commands</span>
+                <div class="keyboard-commands-grid">
+                    <button class="command-btn" type="button" data-command="select_all" title="Select All" aria-label="Select All">All</button>
+                    <button class="command-btn" type="button" data-command="copy">Copy</button>
+                    <button class="command-btn" type="button" data-command="paste">Paste</button>
+                    <button class="command-btn" type="button" data-command="cut">Cut</button>
+                    <button class="command-btn" type="button" data-command="undo">Undo</button>
+                    <button class="command-btn" type="button" data-command="redo">Redo</button>
+                    <button class="command-btn" type="button" data-command="find">Find</button>
+                    <button class="command-btn" type="button" data-command="refresh" title="Refresh / Reload" aria-label="Refresh or Reload">Reload</button>
+                    <button class="command-btn" type="button" data-command="new_tab" title="New Tab" aria-label="New Tab">+Tab</button>
+                    <button class="command-btn" type="button" data-command="close_tab" title="Close Tab" aria-label="Close Tab">Close</button>
+                    <button class="command-btn" type="button" data-command="escape" aria-label="Escape">Esc</button>
+                    <button class="command-btn" type="button" data-command="tab">Tab</button>
+                    <button class="command-btn" type="button" data-command="alt_tab" title="Switch Window" aria-label="Alt plus Tab">Alt+Tab</button>
+                    <button class="command-btn" type="button" data-command="win" title="Windows key" aria-label="Windows key">Win</button>
+                </div>
+            </section>
 
             <div class="typing-preview-panel">
                 <div class="typing-preview-header">
