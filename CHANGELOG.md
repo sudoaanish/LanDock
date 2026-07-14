@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.2.0 - Screen Peek
+
+- Added Screen as a fifth iPhone tab.
+- Added view-only Screen Peek for lightweight desktop visibility.
+- Added manual screenshot Refresh.
+- Added optional two-second Auto Refresh, off by default.
+- Added a local `/api/screen/snapshot` endpoint that returns no-cache JPEG screenshots.
+- Added screenshot viewer controls for pinch zoom, pan, double-tap zoom toggle, and Fit reset.
+- Kept screenshot gestures viewer-only; no remote clicking or coordinate mapping was added.
+- Added privacy copy explaining that capture occurs only on Refresh or while Auto Refresh is enabled.
+- Advanced the PWA cache generation so Home Screen clients receive the new Screen assets.
+- Preserved Trackpad, Keyboard, Typing Preview, live typing, Shift/Ctrl modifiers, command layer, Clipboard, Files, QR/network, updater, and WebSocket behavior.
+
+Notes:
+
+- Screen Peek is not full remote desktop streaming.
+- Screen Peek does not use WebRTC/video.
+- Screen Peek does not save screenshot history.
+- Screen Peek uses fixed local capture through the existing LAN-only LanDock server model.
+- File-transfer compression is not included in v1.2.0.
+- Updater endpoint remains GitHub Releases `latest.json`.
+
 ## v1.1.1 - Keyboard command layer
 
 - Added a compact Commands section to the iPhone Keyboard tab.
