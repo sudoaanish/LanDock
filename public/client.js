@@ -29,8 +29,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const screenRefreshBtn = document.getElementById('screen-refresh-btn');
     const screenAutoToggle = document.getElementById('screen-auto-toggle');
     const screenStatus = document.getElementById('screen-status');
+    const screenPreview = document.getElementById('screen-preview');
     const screenImage = document.getElementById('screen-image');
     const screenPlaceholder = document.getElementById('screen-placeholder');
+    const screenFitBtn = document.getElementById('screen-fit-btn');
     
     // Settings Elements
     const settingsOpen = document.getElementById('settings-open');
@@ -63,6 +65,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let screenImageUrl = null;
     let screenLastUpdatedAt = null;
     let screenStatusError = null;
+    let screenScale = 1;
+    let screenPanX = 0;
+    let screenPanY = 0;
+    let screenDragStart = null;
+    let screenPinchStart = null;
+    let screenGestureHadPinch = false;
+    let screenLastTap = null;
+    const screenPointers = new Map();
+    const screenMinScale = 1;
+    const screenMaxScale = 4;
     const comboKeyNames = {
         9: 'left',
         10: 'right',
@@ -838,6 +850,228 @@ document.addEventListener('DOMContentLoaded', () => {
         setScreenStatus(elapsedSeconds < 2 ? 'Updated just now' : `Updated ${elapsedSeconds}s ago`);
     }
 
+    function clampScreenScale(scale) {
+        return Math.min(screenMaxScale, Math.max(screenMinScale, scale));
+    }
+
+    function getContainedScreenSize() {
+        const width = screenPreview.clientWidth;
+        const height = screenPreview.clientHeight;
+        if (!screenImage.naturalWidth || !screenImage.naturalHeight || width === 0 || height === 0) {
+            return { width, height };
+        }
+
+        const imageRatio = screenImage.naturalWidth / screenImage.naturalHeight;
+        const containerRatio = width / height;
+        if (imageRatio > containerRatio) {
+            return { width, height: width / imageRatio };
+        }
+        return { width: height * imageRatio, height };
+    }
+
+    function clampScreenPan() {
+        if (screenScale <= screenMinScale) {
+            screenPanX = 0;
+            screenPanY = 0;
+            return;
+        }
+
+        const containerWidth = screenPreview.clientWidth;
+        const containerHeight = screenPreview.clientHeight;
+        const contained = getContainedScreenSize();
+        const maxPanX = Math.max(0, (contained.width * screenScale - containerWidth) / 2);
+        const maxPanY = Math.max(0, (contained.height * screenScale - containerHeight) / 2);
+        screenPanX = Math.min(maxPanX, Math.max(-maxPanX, screenPanX));
+        screenPanY = Math.min(maxPanY, Math.max(-maxPanY, screenPanY));
+    }
+
+    function applyScreenTransform() {
+        clampScreenPan();
+        screenImage.style.transform = `translate3d(${screenPanX}px, ${screenPanY}px, 0) scale(${screenScale})`;
+        screenPreview.classList.toggle('zoomed', screenScale > screenMinScale);
+        screenFitBtn.disabled = screenScale <= screenMinScale;
+    }
+
+    function resetScreenView() {
+        screenScale = screenMinScale;
+        screenPanX = 0;
+        screenPanY = 0;
+        applyScreenTransform();
+    }
+
+    function zoomScreenAt(nextScale, clientX, clientY) {
+        const clampedScale = clampScreenScale(nextScale);
+        if (Math.abs(clampedScale - screenScale) < 0.001) return;
+
+        const rect = screenPreview.getBoundingClientRect();
+        const offsetX = clientX - (rect.left + rect.width / 2);
+        const offsetY = clientY - (rect.top + rect.height / 2);
+        const ratio = clampedScale / screenScale;
+        screenPanX = offsetX - (offsetX - screenPanX) * ratio;
+        screenPanY = offsetY - (offsetY - screenPanY) * ratio;
+        screenScale = clampedScale;
+        applyScreenTransform();
+    }
+
+    function toggleScreenZoom(clientX, clientY) {
+        if (screenScale > screenMinScale + 0.01) {
+            resetScreenView();
+        } else {
+            zoomScreenAt(2, clientX, clientY);
+        }
+    }
+
+    function getScreenPointerPair() {
+        return Array.from(screenPointers.values()).slice(0, 2);
+    }
+
+    function beginScreenPinch() {
+        const pair = getScreenPointerPair();
+        if (pair.length < 2) return;
+
+        const [first, second] = pair;
+        screenGestureHadPinch = true;
+        screenPinchStart = {
+            distance: Math.hypot(second.x - first.x, second.y - first.y),
+            midpointX: (first.x + second.x) / 2,
+            midpointY: (first.y + second.y) / 2,
+            scale: screenScale,
+            panX: screenPanX,
+            panY: screenPanY
+        };
+    }
+
+    function resetScreenDragAnchor() {
+        const remaining = screenPointers.values().next().value;
+        screenDragStart = remaining ? {
+            x: remaining.x,
+            y: remaining.y,
+            panX: screenPanX,
+            panY: screenPanY
+        } : null;
+    }
+
+    function handleScreenPointerDown(e) {
+        if (screenImage.hidden || (e.pointerType === 'mouse' && e.button !== 0)) return;
+
+        e.preventDefault();
+        screenPointers.set(e.pointerId, {
+            x: e.clientX,
+            y: e.clientY,
+            startX: e.clientX,
+            startY: e.clientY,
+            startedAt: Date.now(),
+            pointerType: e.pointerType
+        });
+        try {
+            screenPreview.setPointerCapture(e.pointerId);
+        } catch (err) {
+            // Continue without capture on browsers that do not support it.
+        }
+
+        if (screenPointers.size === 1) {
+            resetScreenDragAnchor();
+            screenPreview.classList.add('is-panning');
+        } else if (screenPointers.size === 2) {
+            beginScreenPinch();
+        }
+    }
+
+    function handleScreenPointerMove(e) {
+        const pointer = screenPointers.get(e.pointerId);
+        if (!pointer) return;
+
+        e.preventDefault();
+        pointer.x = e.clientX;
+        pointer.y = e.clientY;
+
+        if (screenPointers.size >= 2 && screenPinchStart) {
+            const [first, second] = getScreenPointerPair();
+            const distance = Math.hypot(second.x - first.x, second.y - first.y);
+            const midpointX = (first.x + second.x) / 2;
+            const midpointY = (first.y + second.y) / 2;
+            const nextScale = clampScreenScale(screenPinchStart.scale * distance / Math.max(1, screenPinchStart.distance));
+            const rect = screenPreview.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const ratio = nextScale / screenPinchStart.scale;
+            screenPanX = midpointX - centerX - (screenPinchStart.midpointX - centerX - screenPinchStart.panX) * ratio;
+            screenPanY = midpointY - centerY - (screenPinchStart.midpointY - centerY - screenPinchStart.panY) * ratio;
+            screenScale = nextScale;
+            applyScreenTransform();
+        } else if (screenPointers.size === 1 && screenScale > screenMinScale && screenDragStart) {
+            screenPanX = screenDragStart.panX + (pointer.x - screenDragStart.x);
+            screenPanY = screenDragStart.panY + (pointer.y - screenDragStart.y);
+            applyScreenTransform();
+        }
+    }
+
+    function registerScreenTap(pointer) {
+        if (pointer.pointerType !== 'touch') return;
+
+        const now = Date.now();
+        if (screenLastTap && now - screenLastTap.time < 320 &&
+            Math.hypot(pointer.x - screenLastTap.x, pointer.y - screenLastTap.y) < 28) {
+            toggleScreenZoom(pointer.x, pointer.y);
+            screenLastTap = null;
+        } else {
+            screenLastTap = { time: now, x: pointer.x, y: pointer.y };
+        }
+    }
+
+    function finishScreenPointer(e, cancelled = false) {
+        const pointer = screenPointers.get(e.pointerId);
+        if (!pointer) return;
+
+        e.preventDefault();
+        const wasOnlyPointer = screenPointers.size === 1;
+        const wasTap = wasOnlyPointer && !screenGestureHadPinch &&
+            Date.now() - pointer.startedAt < 300 &&
+            Math.hypot(pointer.x - pointer.startX, pointer.y - pointer.startY) < 12;
+        screenPointers.delete(e.pointerId);
+        try {
+            screenPreview.releasePointerCapture(e.pointerId);
+        } catch (err) {
+            // Pointer capture may already have been released by the browser.
+        }
+
+        if (wasTap && !cancelled) registerScreenTap(pointer);
+
+        if (screenPointers.size === 1) {
+            screenPinchStart = null;
+            resetScreenDragAnchor();
+        } else if (screenPointers.size === 0) {
+            screenPinchStart = null;
+            screenDragStart = null;
+            screenGestureHadPinch = false;
+            screenPreview.classList.remove('is-panning');
+        }
+    }
+
+    if (screenPreview) {
+        screenPreview.addEventListener('pointerdown', handleScreenPointerDown);
+        screenPreview.addEventListener('pointermove', handleScreenPointerMove);
+        screenPreview.addEventListener('pointerup', e => finishScreenPointer(e));
+        screenPreview.addEventListener('pointercancel', e => finishScreenPointer(e, true));
+        screenPreview.addEventListener('wheel', e => {
+            if (screenImage.hidden) return;
+            e.preventDefault();
+            zoomScreenAt(screenScale * Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
+        }, { passive: false });
+        screenPreview.addEventListener('dblclick', e => {
+            if (screenImage.hidden) return;
+            e.preventDefault();
+            toggleScreenZoom(e.clientX, e.clientY);
+        });
+        screenPreview.addEventListener('contextmenu', e => e.preventDefault());
+    }
+
+    if (screenFitBtn) {
+        screenFitBtn.addEventListener('click', resetScreenView);
+    }
+
+    window.addEventListener('resize', applyScreenTransform);
+
     function stopScreenAutoRefresh(abortCapture = false) {
         if (screenAutoInterval) {
             clearInterval(screenAutoInterval);
@@ -923,6 +1157,7 @@ document.addEventListener('DOMContentLoaded', () => {
             screenImage.src = screenImageUrl;
             screenImage.hidden = false;
             screenPlaceholder.hidden = true;
+            resetScreenView();
             screenLastUpdatedAt = Date.now();
             if (previousImageUrl) URL.revokeObjectURL(previousImageUrl);
         } catch (err) {

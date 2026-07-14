@@ -564,6 +564,35 @@
             color: #fca5a5;
         }
 
+        .screen-viewer-tools {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            min-height: 26px;
+        }
+
+        .screen-gesture-hint {
+            color: var(--text-muted);
+            font-size: 10px;
+        }
+
+        .screen-fit-btn {
+            height: 26px;
+            padding: 0 10px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: none;
+            color: var(--text-main);
+            font-size: 10px;
+            font-weight: 650;
+        }
+
+        .screen-fit-btn:disabled {
+            opacity: 0.45;
+        }
+
         .screen-preview {
             flex: 1;
             min-height: 0;
@@ -575,6 +604,14 @@
             border: 1px solid rgba(255, 255, 255, 0.07);
             border-radius: 12px;
             background: #050609;
+            position: relative;
+            touch-action: none;
+            overscroll-behavior: contain;
+            cursor: grab;
+        }
+
+        .screen-preview.is-panning {
+            cursor: grabbing;
         }
 
         .screen-preview img {
@@ -582,6 +619,11 @@
             width: 100%;
             height: 100%;
             object-fit: contain;
+            transform-origin: center center;
+            will-change: transform;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-drag: none;
         }
 
         .screen-preview img[hidden] {
@@ -976,9 +1018,13 @@
                 </div>
             </div>
             <div id="screen-status" class="screen-status" role="status" aria-live="polite">Ready</div>
-            <div class="screen-preview">
+            <div class="screen-viewer-tools">
+                <span class="screen-gesture-hint">Pinch to zoom &middot; drag to pan</span>
+                <button id="screen-fit-btn" class="screen-fit-btn" type="button" disabled>Fit</button>
+            </div>
+            <div id="screen-preview" class="screen-preview">
                 <div id="screen-placeholder" class="screen-placeholder">Tap Refresh to capture the current desktop.</div>
-                <img id="screen-image" alt="Current Windows desktop screenshot" hidden>
+                <img id="screen-image" alt="Current Windows desktop screenshot" draggable="false" hidden>
             </div>
             <p class="screen-privacy">Screen Peek captures the current desktop only when requested or while Auto Refresh is on.</p>
         </div>
