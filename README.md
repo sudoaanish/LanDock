@@ -39,7 +39,7 @@ LanDock turns your Windows PC into a local Wi-Fi hub for your iPhone. Install th
 
 ---
 
-Version: `1.2.0`
+Version: `1.2.1`
 
 ## Features
 
@@ -64,7 +64,7 @@ Version: `1.2.0`
 For normal use, download the Windows MSI from the GitHub Releases page and install it:
 
 ```text
-LanDock_1.2.0_x64_en-US.msi
+LanDock_1.2.1_x64_en-US.msi
 ```
 
 The packaged Windows app includes its own Node.js runtime under the app resources. You do not need to install Node.js to run the MSI build.
@@ -141,7 +141,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_windows.
 The script runs the Tauri release build, verifies the release executable and bundled resources, and produces:
 
 ```text
-src-tauri\target\release\bundle\msi\LanDock_1.2.0_x64_en-US.msi
+src-tauri\target\release\bundle\msi\LanDock_1.2.1_x64_en-US.msi
 ```
 
 On some local Windows environments, WiX `light.exe` can fail during ICE validation because Windows Installer Service validation is unavailable. If the release executable and WiX object were already generated, the script applies the documented local fallback:

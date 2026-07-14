@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.2.1 - Files, version, and workflow polish
+
+- Added backend-provided app info through `/api/app-info`.
+- iPhone Settings now shows the running LanDock version from the backend.
+- Added persistent Sent to PC history on the iPhone Files tab.
+- Sent to PC items show filename, size, time, and uploading/sent/failed state.
+- Kept Shared From PC visible on the iPhone Files tab.
+- Renamed the PC Hub file card to Received from iPhone.
+- Advanced the PWA cache generation so Home Screen clients receive the updated assets.
+- Updated GitHub Actions workflow action versions to address the Node action runtime deprecation warning.
+- Preserved Screen Peek, Trackpad, Keyboard, Typing Preview, live typing, Shift/Ctrl modifiers, command layer, Clipboard, Files, QR/network, updater, and WebSocket behavior.
+
+Notes:
+
+- Sent to PC history is local to the current iPhone/browser and capped at 20 items.
+- Clearing Safari/PWA site data clears the local sent history.
+- No server-side transfer database was added.
+- File-transfer compression is not included in v1.2.1.
+- Updater endpoint remains GitHub Releases `latest.json`.
+
 ## v1.2.0 - Screen Peek
 
 - Added Screen as a fifth iPhone tab.
