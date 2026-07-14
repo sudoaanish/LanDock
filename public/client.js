@@ -338,7 +338,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function requestResumeRecovery(reason) {
         if (!resumeRecoveryNeeded || document.visibilityState === 'hidden' || navigator.onLine === false) return;
-        if (resumeReconnectTimer) clearTimeout(resumeReconnectTimer);
+        if (resumeReconnectTimer) {
+            clearTimeout(resumeReconnectTimer);
+        } else {
+            resetTrackpadState();
+            stopPinger();
+            closeCurrentSocket();
+            isConnected = false;
+            setConnectionStatus('Reconnecting...');
+        }
 
         const elapsed = Date.now() - lastResumeReconnectAt;
         const delay = Math.max(resumeReconnectDebounceMs, resumeReconnectMinimumMs - elapsed);
@@ -357,6 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
             syncScreenAutoRefresh();
         } else {
             resumeRecoveryNeeded = true;
+            resetTrackpadState();
             stopPinger();
             stopScreenAutoRefresh(true);
         }
@@ -373,6 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('blur', () => {
         resumeRecoveryNeeded = true;
+        resetTrackpadState();
     });
 
     window.addEventListener('online', () => {
@@ -427,6 +437,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let isScrolling = false;
     let scrollFinish = false;
     let updateActive = false;
+    let inputFlushTimer = null;
+    let inputGeneration = 0;
 
     function getAcceleration(speed) {
         for (let i = 0; i < POINTER_ACCELERATION.length; i++) {
@@ -457,8 +469,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return -1;
     }
 
-    function clearTransientInputState() {
+    function resetTrackpadState() {
+        inputGeneration += 1;
+        if (inputFlushTimer !== null) {
+            clearTimeout(inputFlushTimer);
+            inputFlushTimer = null;
+        }
         ongoingTouches = [];
+        touchStartTime = 0;
         moveXSum = 0;
         moveYSum = 0;
         scrollHSum = 0;
@@ -473,12 +491,18 @@ document.addEventListener('DOMContentLoaded', () => {
             clearTimeout(draggingTimeout);
             draggingTimeout = null;
         }
+        tpSurface.classList.remove('touched');
+    }
+
+    function clearTransientInputState() {
+        resetTrackpadState();
         clearHeldModifier();
         clearActiveModifier();
     }
 
     // Rate limited websocket stream sender
-    function flushInputBuffer() {
+    function flushInputBuffer(generation = inputGeneration) {
+        if (generation !== inputGeneration) return;
         if (!socketIsOpen()) {
             clearTransientInputState();
             scheduleReconnect(0);
@@ -524,10 +548,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Keep updating at 60Hz if movements are queued
         if (shouldContinue) {
-            setTimeout(flushInputBuffer, 1000 / UPDATE_RATE);
             updateActive = true;
+            inputFlushTimer = setTimeout(() => {
+                inputFlushTimer = null;
+                flushInputBuffer(generation);
+            }, 1000 / UPDATE_RATE);
         } else {
             updateActive = false;
+            inputFlushTimer = null;
         }
     }
 
@@ -538,12 +566,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function sendImmediateClick(button, press) {
-        sendSocketMessage(`b${button};${press ? 1 : 0}`);
+        if (sendSocketMessage(`b${button};${press ? 1 : 0}`)) return true;
+        resetTrackpadState();
+        return false;
     }
 
     // Touch Event Handlers
     tpSurface.addEventListener('touchstart', (e) => {
         e.preventDefault();
+
+        const changedIds = new Set(Array.from(e.changedTouches, touch => touch.identifier));
+        const continuingIds = new Set(
+            Array.from(e.touches, touch => touch.identifier)
+                .filter(identifier => !changedIds.has(identifier))
+        );
+        const hasStaleTouches = ongoingTouches.length !== continuingIds.size ||
+            ongoingTouches.some(touch => !continuingIds.has(touch.id));
+        if (hasStaleTouches) resetTrackpadState();
+
         tpSurface.classList.add('touched');
 
         if (ongoingTouches.length === 0) {
@@ -565,7 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
             draggingTimeout = null;
             isDragging = true;
         }
-    });
+    }, { passive: false });
 
     tpSurface.addEventListener('touchmove', (e) => {
         e.preventDefault();
@@ -623,7 +663,7 @@ document.addEventListener('DOMContentLoaded', () => {
             scrollVSum += deltaYTotal * scrollSensitivity * 0.15 * scrollDir;
             queueInput();
         }
-    });
+    }, { passive: false });
 
     function handleTouchEnd(e) {
         e.preventDefault();
@@ -660,7 +700,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (button !== -1) {
-                    sendImmediateClick(button, true);
+                    if (!sendImmediateClick(button, true)) return;
                     
                     if (button === 0) {
                         // Double tap detection: hold left down to trigger drag
@@ -682,8 +722,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    tpSurface.addEventListener('touchend', handleTouchEnd);
-    tpSurface.addEventListener('touchcancel', handleTouchEnd);
+    tpSurface.addEventListener('touchend', handleTouchEnd, { passive: false });
+    tpSurface.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        if (isDragging && socketIsOpen()) sendImmediateClick(0, false);
+        resetTrackpadState();
+    }, { passive: false });
 
     // ==========================================
     // 3. VIRTUAL KEYBOARD SYNC LOGIC
