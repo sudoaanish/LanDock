@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/logo.png" alt="LanDock logo" width="260" />
+<img src="public/logo-cropped.png" alt="LanDock logo" width="260" />
 
 # LanDock
 
