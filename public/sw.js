@@ -1,4 +1,4 @@
-const CACHE_NAME = 'landock-cache-v5';
+const CACHE_NAME = 'landock-cache-v6';
 const ASSETS = [
     'client.html',
     'global.css',

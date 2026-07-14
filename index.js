@@ -20,6 +20,81 @@ try {
 
 const PORT = 3731;
 const shareDir = path.join(os.homedir(), 'Downloads', 'LanDock', 'shares');
+const MAX_FILENAME_COLLISIONS = 9999;
+
+function sanitizeUploadFilename(filename, fallbackName) {
+    const rawName = String(filename || '').replace(/\\/g, '/').split('/').pop() || '';
+    let safeName = rawName
+        .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+        .replace(/[. ]+$/g, '')
+        .trim();
+
+    if (!safeName || safeName === '.' || safeName === '..') {
+        safeName = fallbackName;
+    }
+
+    const parsed = path.parse(safeName);
+    let stem = parsed.name.replace(/[. ]+$/g, '').trim() || fallbackName;
+    let extension = parsed.ext.replace(/[. ]+$/g, '');
+
+    if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(stem)) {
+        stem = `_${stem}`;
+    }
+
+    extension = extension.slice(0, 24);
+    stem = stem.slice(0, Math.max(1, 180 - extension.length));
+    return `${stem}${extension}`;
+}
+
+function saveUploadedFile(tempPath, destinationDir, requestedName, fallbackName, callback, attempt = 1) {
+    if (!tempPath) {
+        callback(new Error('Missing temporary upload path'));
+        return;
+    }
+
+    if (attempt > MAX_FILENAME_COLLISIONS) {
+        callback(new Error('Too many files share this name'));
+        return;
+    }
+
+    const safeName = sanitizeUploadFilename(requestedName, fallbackName);
+    const parsed = path.parse(safeName);
+    const candidateName = attempt === 1
+        ? safeName
+        : `${parsed.name}-${attempt}${parsed.ext}`;
+    const targetPath = path.join(destinationDir, candidateName);
+    const destinationRoot = `${path.resolve(destinationDir)}${path.sep}`;
+
+    if (!path.resolve(targetPath).startsWith(destinationRoot)) {
+        callback(new Error('Invalid upload filename'));
+        return;
+    }
+
+    fs.copyFile(tempPath, targetPath, fs.constants.COPYFILE_EXCL, (copyErr) => {
+        if (copyErr && copyErr.code === 'EEXIST') {
+            saveUploadedFile(tempPath, destinationDir, safeName, fallbackName, callback, attempt + 1);
+            return;
+        }
+
+        if (copyErr) {
+            callback(copyErr);
+            return;
+        }
+
+        fs.unlink(tempPath, (unlinkErr) => {
+            if (unlinkErr) {
+                console.warn(`[Upload] Saved file but could not remove temporary file: ${unlinkErr.message}`);
+            }
+            callback(null, { name: candidateName, path: targetPath });
+        });
+    });
+}
+
+function removeTemporaryUpload(fileObj) {
+    const tempPath = fileObj && (fileObj.filepath || fileObj.path);
+    if (!tempPath) return;
+    fs.unlink(tempPath, () => {});
+}
 
 // ==========================================
 // 1. NATIVE INPUT EMULATION CORE
@@ -586,28 +661,34 @@ const server = http.createServer((req, res) => {
             }
 
             const originalName = fileObj.originalFilename || fileObj.name || 'uploaded_file';
-            const targetPath = path.join(uploadDir, originalName);
+            const tempPath = fileObj.filepath || fileObj.path;
 
-            fs.rename(fileObj.filepath || fileObj.path, targetPath, (renameErr) => {
-                if (renameErr) {
-                    console.error('[Upload] Error renaming file:', renameErr.message);
+            saveUploadedFile(tempPath, uploadDir, originalName, 'uploaded_file', (saveErr, savedFile) => {
+                if (saveErr) {
+                    removeTemporaryUpload(fileObj);
+                    console.error('[Upload] Error saving file:', saveErr.message);
                     res.statusCode = 500;
                     res.end(JSON.stringify({ error: 'Failed to save file' }));
                     return;
                 }
 
-                console.log(`[Upload] File saved: ${targetPath}`);
+                console.log(`[Upload] File saved: ${savedFile.path}`);
                 broadcast({
                     type: 'file_received',
-                    name: originalName,
+                    name: savedFile.name,
                     size: fileObj.size,
-                    path: targetPath
+                    path: savedFile.path
                 }, null);
 
-                revealInExplorer(targetPath);
+                revealInExplorer(savedFile.path);
 
                 res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ success: true, name: originalName }));
+                res.end(JSON.stringify({
+                    success: true,
+                    originalName,
+                    name: savedFile.name,
+                    size: fileObj.size
+                }));
             });
         });
         return;
@@ -643,26 +724,32 @@ const server = http.createServer((req, res) => {
             }
 
             const originalName = fileObj.originalFilename || fileObj.name || 'shared_file';
-            const targetPath = path.join(shareDir, originalName);
+            const tempPath = fileObj.filepath || fileObj.path;
 
-            fs.rename(fileObj.filepath || fileObj.path, targetPath, (renameErr) => {
-                if (renameErr) {
-                    console.error('[Share] Error renaming file:', renameErr.message);
+            saveUploadedFile(tempPath, shareDir, originalName, 'shared_file', (saveErr, savedFile) => {
+                if (saveErr) {
+                    removeTemporaryUpload(fileObj);
+                    console.error('[Share] Error saving file:', saveErr.message);
                     res.statusCode = 500;
                     res.end(JSON.stringify({ error: 'Failed to save shared file' }));
                     return;
                 }
 
-                console.log(`[Share] File shared: ${originalName}`);
+                console.log(`[Share] File shared: ${savedFile.name}`);
                 broadcast({
                     type: 'file_available',
-                    name: originalName,
+                    name: savedFile.name,
                     size: fileObj.size,
-                    url: `/shares/${encodeURIComponent(originalName)}`
+                    url: `/shares/${encodeURIComponent(savedFile.name)}`
                 }, null);
 
                 res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ success: true, name: originalName }));
+                res.end(JSON.stringify({
+                    success: true,
+                    originalName,
+                    name: savedFile.name,
+                    size: fileObj.size
+                }));
             });
         });
         return;

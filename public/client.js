@@ -49,7 +49,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let socket;
     let isConnected = false;
     let latencyInterval;
-    let pingTime = 0;
+    let reconnectTimer = null;
+    let resumeReconnectTimer = null;
+    let resumeRecoveryNeeded = false;
+    let lastResumeReconnectAt = 0;
+    let lastPongAt = 0;
     let typingPreviewBuffer = '';
     let activeModifier = null;
     let heldModifier = null;
@@ -60,6 +64,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let modifierHoldTimer = null;
     const modifierHoldThresholdMs = 180;
     const screenAutoRefreshMs = 2000;
+    const socketReconnectDelayMs = 2000;
+    const resumeReconnectDebounceMs = 200;
+    const resumeReconnectMinimumMs = 1200;
+    const socketHeartbeatTimeoutMs = 10000;
     let screenAutoInterval = null;
     let screenCaptureController = null;
     let screenCaptureInFlight = false;
@@ -146,17 +154,90 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // 1. SOCKET CONNECTION MANAGEMENT
     // ==========================================
-    function connectSocket() {
+    function setConnectionStatus(message) {
         connIndicator.className = 'glow-indicator disconnected';
-        connStatusText.textContent = 'Connecting...';
+        connStatusText.textContent = message;
         connStatusText.style.color = 'var(--text-muted)';
+        latencyVal.textContent = '-- ms';
+    }
+
+    function socketIsOpen() {
+        return Boolean(isConnected && socket && socket.readyState === WebSocket.OPEN);
+    }
+
+    function clearReconnectTimer() {
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
+    }
+
+    function closeCurrentSocket() {
+        if (!socket) return;
+        const previousSocket = socket;
+        socket = null;
+        previousSocket.onopen = null;
+        previousSocket.onmessage = null;
+        previousSocket.onerror = null;
+        previousSocket.onclose = null;
+        if (previousSocket.readyState === WebSocket.OPEN || previousSocket.readyState === WebSocket.CONNECTING) {
+            try {
+                previousSocket.close(1000, 'LanDock reconnect');
+            } catch (err) {
+                // The connection is already unavailable.
+            }
+        }
+    }
+
+    function scheduleReconnect(delay = socketReconnectDelayMs) {
+        if (navigator.onLine === false || document.visibilityState === 'hidden' || reconnectTimer) return;
+        setConnectionStatus('Reconnecting...');
+        reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            connectSocket({ status: 'Reconnecting...' });
+        }, delay);
+    }
+
+    function connectSocket(options = {}) {
+        const force = options.force === true;
+        const status = options.status || 'Connecting...';
+
+        if (navigator.onLine === false) {
+            isConnected = false;
+            setConnectionStatus('Offline');
+            return;
+        }
+
+        if (!force && socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+            return;
+        }
+
+        clearReconnectTimer();
+        stopPinger();
+        if (force || socket) {
+            closeCurrentSocket();
+            clearTransientInputState();
+        }
+
+        isConnected = false;
+        lastPongAt = 0;
+        setConnectionStatus(status);
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
-        socket = new WebSocket(`${protocol}//${host}`);
+        let currentSocket;
+        try {
+            currentSocket = new WebSocket(`${protocol}//${host}`);
+        } catch (err) {
+            scheduleReconnect();
+            return;
+        }
+        socket = currentSocket;
 
-        socket.onopen = () => {
+        currentSocket.onopen = () => {
+            if (socket !== currentSocket) return;
             isConnected = true;
+            lastPongAt = Date.now();
             connIndicator.className = 'glow-indicator';
             connStatusText.textContent = 'Connected';
             connStatusText.style.color = 'var(--text-main)';
@@ -166,11 +247,13 @@ document.addEventListener('DOMContentLoaded', () => {
             syncScreenAutoRefresh();
         };
 
-        socket.onmessage = (event) => {
+        currentSocket.onmessage = (event) => {
+            if (socket !== currentSocket) return;
             try {
                 const msg = JSON.parse(event.data);
                 
                 if (msg.type === 'pong') {
+                    lastPongAt = Date.now();
                     const rtt = Date.now() - msg.time;
                     latencyVal.textContent = `${rtt} ms`;
                 } else if (msg.type === 'clipboard_sync') {
@@ -185,42 +268,131 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        socket.onclose = () => {
+        currentSocket.onerror = () => {
+            if (socket !== currentSocket) return;
+            try {
+                currentSocket.close();
+            } catch (err) {
+                // The close handler or scheduled reconnect below will recover.
+            }
+            scheduleReconnect();
+        };
+
+        currentSocket.onclose = () => {
+            if (socket !== currentSocket) return;
+            socket = null;
             isConnected = false;
-            connIndicator.className = 'glow-indicator disconnected';
-            connStatusText.textContent = 'Reconnecting...';
-            connStatusText.style.color = 'var(--text-muted)';
-            latencyVal.textContent = '-- ms';
+            setConnectionStatus(navigator.onLine === false ? 'Offline' : 'Reconnecting...');
             stopPinger();
+            clearTransientInputState();
             stopScreenAutoRefresh(true);
-            
-            // Reconnect
-            setTimeout(connectSocket, 2000);
+            scheduleReconnect();
         };
     }
 
+    function sendSocketMessage(payload) {
+        if (!socketIsOpen()) {
+            scheduleReconnect(0);
+            return false;
+        }
+
+        try {
+            socket.send(payload);
+            return true;
+        } catch (err) {
+            forceSocketReconnect('send failure');
+            return false;
+        }
+    }
+
     function startPinger() {
+        stopPinger();
         latencyInterval = setInterval(() => {
-            if (isConnected && socket.readyState === 1) {
-                socket.send(JSON.stringify({ type: 'ping', time: Date.now() }));
+            if (!socketIsOpen()) {
+                scheduleReconnect(0);
+                return;
             }
+
+            if (lastPongAt && Date.now() - lastPongAt > socketHeartbeatTimeoutMs) {
+                forceSocketReconnect('heartbeat timeout');
+                return;
+            }
+
+            sendSocketMessage(JSON.stringify({ type: 'ping', time: Date.now() }));
         }, 3000);
     }
 
     function stopPinger() {
         clearInterval(latencyInterval);
+        latencyInterval = null;
     }
 
-    // Recover connections quickly when iOS resumes Safari tab from background
+    function forceSocketReconnect(reason) {
+        if (navigator.onLine === false || document.visibilityState === 'hidden') return;
+        clearReconnectTimer();
+        stopScreenAutoRefresh(true);
+        connectSocket({ force: true, status: 'Reconnecting...' });
+        fetch('/api/app-info', { cache: 'no-store' })
+            .catch(() => {});
+    }
+
+    function requestResumeRecovery(reason) {
+        if (!resumeRecoveryNeeded || document.visibilityState === 'hidden' || navigator.onLine === false) return;
+        if (resumeReconnectTimer) clearTimeout(resumeReconnectTimer);
+
+        const elapsed = Date.now() - lastResumeReconnectAt;
+        const delay = Math.max(resumeReconnectDebounceMs, resumeReconnectMinimumMs - elapsed);
+        resumeReconnectTimer = setTimeout(() => {
+            resumeReconnectTimer = null;
+            if (!resumeRecoveryNeeded || document.visibilityState === 'hidden' || navigator.onLine === false) return;
+            resumeRecoveryNeeded = false;
+            lastResumeReconnectAt = Date.now();
+            forceSocketReconnect(reason);
+        }, delay);
+    }
+
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-            if (!isConnected || socket.readyState !== 1) {
-                connectSocket();
-            }
+            requestResumeRecovery('visibility resume');
             syncScreenAutoRefresh();
         } else {
+            resumeRecoveryNeeded = true;
+            stopPinger();
             stopScreenAutoRefresh(true);
         }
+    });
+
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted) resumeRecoveryNeeded = true;
+        requestResumeRecovery('pageshow');
+    });
+
+    window.addEventListener('focus', () => {
+        requestResumeRecovery('focus');
+    });
+
+    window.addEventListener('blur', () => {
+        resumeRecoveryNeeded = true;
+    });
+
+    window.addEventListener('online', () => {
+        resumeRecoveryNeeded = true;
+        requestResumeRecovery('online');
+    });
+
+    window.addEventListener('offline', () => {
+        resumeRecoveryNeeded = true;
+        clearReconnectTimer();
+        if (resumeReconnectTimer) {
+            clearTimeout(resumeReconnectTimer);
+            resumeReconnectTimer = null;
+        }
+        stopPinger();
+        stopScreenAutoRefresh(true);
+        clearTransientInputState();
+        closeCurrentSocket();
+        isConnected = false;
+        setConnectionStatus('Offline');
     });
 
     // ==========================================
@@ -285,9 +457,33 @@ document.addEventListener('DOMContentLoaded', () => {
         return -1;
     }
 
+    function clearTransientInputState() {
+        ongoingTouches = [];
+        moveXSum = 0;
+        moveYSum = 0;
+        scrollHSum = 0;
+        scrollVSum = 0;
+        scrollFinish = false;
+        isScrolling = false;
+        updateActive = false;
+        isDragging = false;
+        hasMoved = false;
+        releasedCount = 0;
+        if (draggingTimeout !== null) {
+            clearTimeout(draggingTimeout);
+            draggingTimeout = null;
+        }
+        clearHeldModifier();
+        clearActiveModifier();
+    }
+
     // Rate limited websocket stream sender
     function flushInputBuffer() {
-        if (!isConnected || socket.readyState !== 1) return;
+        if (!socketIsOpen()) {
+            clearTransientInputState();
+            scheduleReconnect(0);
+            return;
+        }
         
         let shouldContinue = false;
 
@@ -295,7 +491,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const xInt = Math.trunc(moveXSum);
         const yInt = Math.trunc(moveYSum);
         if (xInt !== 0 || yInt !== 0) {
-            socket.send(`m${xInt};${yInt}`);
+            if (!sendSocketMessage(`m${xInt};${yInt}`)) {
+                clearTransientInputState();
+                return;
+            }
             moveXSum -= xInt;
             moveYSum -= yInt;
             shouldContinue = true;
@@ -305,14 +504,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const hInt = Math.trunc(scrollHSum);
         const vInt = Math.trunc(scrollVSum);
         if (hInt !== 0 || vInt !== 0) {
-            socket.send((scrollFinish ? 'S' : 's') + `${hInt};${vInt}`);
+            if (!sendSocketMessage((scrollFinish ? 'S' : 's') + `${hInt};${vInt}`)) {
+                clearTransientInputState();
+                return;
+            }
             scrollHSum -= hInt;
             scrollVSum -= vInt;
             isScrolling = !scrollFinish;
             scrollFinish = false;
             shouldContinue = true;
         } else if (scrollFinish && isScrolling) {
-            socket.send('S');
+            if (!sendSocketMessage('S')) {
+                clearTransientInputState();
+                return;
+            }
             isScrolling = false;
             scrollFinish = false;
         }
@@ -333,9 +538,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function sendImmediateClick(button, press) {
-        if (isConnected && socket.readyState === 1) {
-            socket.send(`b${button};${press ? 1 : 0}`);
-        }
+        sendSocketMessage(`b${button};${press ? 1 : 0}`);
     }
 
     // Touch Event Handlers
@@ -632,14 +835,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return false;
         }
 
-        if (isConnected && socket.readyState === 1) {
-            socket.send(JSON.stringify({
-                type: 'key_combo',
-                modifiers: [modifier],
-                key: keyName
-            }));
-        }
-        return true;
+        return sendSocketMessage(JSON.stringify({
+            type: 'key_combo',
+            modifiers: [modifier],
+            key: keyName
+        }));
     }
 
     modifierButtons.forEach(btn => {
@@ -730,9 +930,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const text = e.target.value;
         if (text.length > 0) {
             appendTypingPreview(text);
-            if (isConnected && socket.readyState === 1) {
-                socket.send(`t${text}`);
-            }
+            sendSocketMessage(`t${text}`);
             e.target.value = ''; // Reset buffer immediately
         }
     });
@@ -753,15 +951,13 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (keyIdx !== -1) {
             e.preventDefault();
-            if (isConnected && socket.readyState === 1) {
-                socket.send(`k${keyIdx}`);
-            }
+            sendSocketMessage(`k${keyIdx}`);
         }
     });
 
     function activateUtilityKey(btn) {
         const keyIdx = btn.getAttribute('data-key-idx');
-        if (keyIdx !== null && isConnected && socket.readyState === 1) {
+        if (keyIdx !== null) {
             const keyName = comboKeyNames[keyIdx];
             const modifier = getActiveModifierForKey();
             const sentCombo = modifier ? sendKeyCombo(modifier, keyName) : false;
@@ -769,15 +965,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (sentCombo) {
                 clearModifierAfterCombo(modifier);
             } else {
-                socket.send(`k${keyIdx}`);
-                if (modifier === activeModifier && !heldModifier) {
+                const sentKey = sendSocketMessage(`k${keyIdx}`);
+                if (sentKey && modifier === activeModifier && !heldModifier) {
                     clearActiveModifier();
                 }
             }
 
-            // Visual feedback trigger
-            btn.style.transform = 'scale(0.93)';
-            setTimeout(() => btn.style.transform = '', 100);
+            if (sentCombo || socketIsOpen()) {
+                btn.style.transform = 'scale(0.93)';
+                setTimeout(() => btn.style.transform = '', 100);
+            }
         }
     }
 
@@ -807,9 +1004,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function activateCommand(btn) {
         const command = btn.getAttribute('data-command');
-        if (!command || !isConnected || socket.readyState !== 1) return;
+        if (!command) return;
 
-        socket.send(JSON.stringify({ type: 'command', command }));
+        if (!sendSocketMessage(JSON.stringify({ type: 'command', command }))) return;
         btn.style.transform = 'scale(0.94)';
         setTimeout(() => btn.style.transform = '', 100);
     }
@@ -1216,14 +1413,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     clipPushBtn.addEventListener('click', () => {
         const text = clipArea.value;
-        if (isConnected && socket.readyState === 1) {
-            socket.send(JSON.stringify({
-                type: 'clipboard_push',
-                text: text
-            }));
+        if (sendSocketMessage(JSON.stringify({
+            type: 'clipboard_push',
+            text: text
+        }))) {
             showClipStatus('Pasted to PC');
         } else {
-            showClipStatus('Disconnected', true);
+            showClipStatus('Reconnecting...', true);
         }
     });
 
@@ -1231,11 +1427,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Request sync (Server automatically pushes on socket message if needed,
         // or we just query since websocket connection does it. For pull we can send a request).
         // Let's send a ping/pull command
-        if (isConnected && socket.readyState === 1) {
-            socket.send(JSON.stringify({ type: 'ping', time: Date.now() }));
+        if (sendSocketMessage(JSON.stringify({ type: 'ping', time: Date.now() }))) {
             showClipStatus('Copied from PC');
         } else {
-            showClipStatus('Disconnected', true);
+            showClipStatus('Reconnecting...', true);
         }
     });
 
