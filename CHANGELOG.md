@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.2.2 - Image transfer optimization
+
+- Added Image Optimization controls to the iPhone Files tab.
+- Original remains the default upload mode.
+- Added optional client-side JPEG optimization before upload.
+- Optimized images are resized to a 1920px maximum edge and encoded as JPEG at 0.82 quality.
+- Browser-decodable HEIC/HEIF images attempt the same optimization path.
+- PNG, GIF, WebP, non-images, oversized images, and failed conversions safely upload as originals.
+- Optimized uploads use an `.optimized.jpg` filename.
+- Optimized output is used only when smaller than the original.
+- Sent to PC history now shows original size, uploaded size, and Original/Optimized/Fallback state.
+- Advanced the PWA cache generation so Home Screen clients receive the updated assets.
+- Preserved original uploads, Shared From PC, PC Received from iPhone listing, Screen Peek, Trackpad, Keyboard, Typing Preview, live typing, Shift/Ctrl modifiers, command layer, Clipboard, QR/network, updater, and WebSocket behavior.
+
+Notes:
+
+- Image optimization happens locally in the iPhone/browser.
+- Originals remain on the phone.
+- Optimized JPEG output strips source metadata such as EXIF/GPS.
+- Transparent PNG optimization is intentionally deferred.
+- General ZIP/archive compression is not included in v1.2.2.
+- Squoosh/WASM integration is not included in v1.2.2.
+- Updater endpoint remains GitHub Releases `latest.json`.
+
 ## v1.2.1 - Files, version, and workflow polish
 
 - Added backend-provided app info through `/api/app-info`.
