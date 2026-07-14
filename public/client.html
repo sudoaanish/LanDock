@@ -480,6 +480,122 @@
             border-radius: 12px;
         }
 
+        /* Screen Peek Tab */
+        .screen-view {
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .screen-heading {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .screen-title {
+            font-size: 18px;
+            font-weight: 650;
+            color: var(--text-main);
+        }
+
+        .screen-description,
+        .screen-privacy {
+            font-size: 11px;
+            line-height: 1.4;
+            color: var(--text-muted);
+        }
+
+        .screen-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .screen-refresh-btn {
+            flex: 1;
+            height: 42px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 650;
+        }
+
+        .screen-refresh-btn:disabled {
+            opacity: 0.58;
+            cursor: wait;
+        }
+
+        .screen-auto-control {
+            height: 42px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 10px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.025);
+            color: var(--text-main);
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .screen-auto-control .switch {
+            width: 40px;
+            height: 22px;
+        }
+
+        .screen-auto-control .slider:before {
+            width: 16px;
+            height: 16px;
+            left: 3px;
+            bottom: 3px;
+        }
+
+        .screen-auto-control input:checked + .slider:before {
+            transform: translateX(18px);
+        }
+
+        .screen-status {
+            min-height: 17px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .screen-status.error {
+            color: #fca5a5;
+        }
+
+        .screen-preview {
+            flex: 1;
+            min-height: 0;
+            width: 100%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 12px;
+            background: #050609;
+        }
+
+        .screen-preview img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .screen-preview img[hidden] {
+            display: none;
+        }
+
+        .screen-placeholder {
+            padding: 24px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
         /* Bottom Tab Navigator */
         .bottom-nav {
             display: flex;
@@ -842,6 +958,30 @@
                 </div>
             </div>
         </div>
+
+        <!-- View 5: Screen Peek -->
+        <div id="view-screen" class="view-panel screen-view">
+            <div class="screen-heading">
+                <h2 class="screen-title">Screen Peek</h2>
+                <p class="screen-description">A lightweight, view-only snapshot of the current Windows desktop.</p>
+            </div>
+            <div class="screen-controls">
+                <button id="screen-refresh-btn" class="screen-refresh-btn" type="button">Refresh</button>
+                <div class="screen-auto-control">
+                    <span>Auto Refresh</span>
+                    <label class="switch" title="Refresh every 2 seconds while this tab is visible">
+                        <input id="screen-auto-toggle" type="checkbox" aria-label="Auto Refresh every 2 seconds">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+            <div id="screen-status" class="screen-status" role="status" aria-live="polite">Ready</div>
+            <div class="screen-preview">
+                <div id="screen-placeholder" class="screen-placeholder">Tap Refresh to capture the current desktop.</div>
+                <img id="screen-image" alt="Current Windows desktop screenshot" hidden>
+            </div>
+            <p class="screen-privacy">Screen Peek captures the current desktop only when requested or while Auto Refresh is on.</p>
+        </div>
     </div>
 
     <!-- Bottom Navigator -->
@@ -861,6 +1001,10 @@
         <div class="nav-item" data-target="view-files">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
             Files
+        </div>
+        <div class="nav-item" data-target="view-screen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M8 21h8M12 17v4"></path></svg>
+            Screen
         </div>
     </div>
 

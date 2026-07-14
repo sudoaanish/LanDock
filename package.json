@@ -15,6 +15,7 @@
     "koffi": "latest",
     "qrcode": "latest",
     "qrcode-terminal": "latest",
+    "screenshot-desktop": "^1.15.4",
     "ws": "latest"
   },
   "private": true,

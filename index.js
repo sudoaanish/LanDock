@@ -10,6 +10,13 @@ const clipboard = require('clipboardy').default;
 const formidable = require('formidable');
 const { exec } = require('child_process');
 
+let screenshot = null;
+try {
+    screenshot = require('screenshot-desktop');
+} catch (err) {
+    console.warn('[Screen Peek] Screenshot support is unavailable:', err.message);
+}
+
 const PORT = 3731;
 const shareDir = path.join(os.homedir(), 'Downloads', 'LanDock', 'shares');
 
@@ -467,6 +474,28 @@ function revealInExplorer(filePath) {
     });
 }
 
+let activeScreenCapture = null;
+
+function captureScreenSnapshot() {
+    if (!screenshot) {
+        return Promise.reject(new Error('Screenshot support is unavailable.'));
+    }
+
+    if (!activeScreenCapture) {
+        activeScreenCapture = screenshot({ format: 'jpg' })
+            .finally(() => {
+                activeScreenCapture = null;
+            });
+    }
+    return activeScreenCapture;
+}
+
+function setScreenNoCacheHeaders(res) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+}
+
 // ==========================================
 // 3. HTTP STATIC & API SERVER
 // ==========================================
@@ -481,6 +510,7 @@ const MIME_TYPES = {
 
 const server = http.createServer((req, res) => {
     let urlPath = req.url;
+    const requestPath = new URL(req.url, 'http://localhost').pathname;
     console.log(`[HTTP] ${req.method} ${urlPath}`);
 
     // Enable CORS for local network sharing (essential for iOS Safari)
@@ -491,6 +521,36 @@ const server = http.createServer((req, res) => {
     if (req.method === 'OPTIONS') {
         res.statusCode = 204;
         res.end();
+        return;
+    }
+
+    if (requestPath === '/api/screen/snapshot') {
+        setScreenNoCacheHeaders(res);
+
+        if (req.method !== 'GET') {
+            res.statusCode = 405;
+            res.setHeader('Allow', 'GET');
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: 'Method not allowed' }));
+            return;
+        }
+
+        captureScreenSnapshot()
+            .then(image => {
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'image/jpeg');
+                res.setHeader('Content-Length', image.length);
+                res.end(image);
+            })
+            .catch(err => {
+                console.error('[Screen Peek] Capture failed:', err.message);
+                const publicError = err.message === 'Screenshot support is unavailable.'
+                    ? 'Screen Peek is unavailable in this installation.'
+                    : 'Screen capture failed. The Windows desktop may be locked or unavailable.';
+                res.statusCode = 503;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: publicError }));
+            });
         return;
     }
 

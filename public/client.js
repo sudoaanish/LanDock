@@ -24,6 +24,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const clipStatus = document.getElementById('clip-status');
     const clipPullBtn = document.getElementById('clip-pull-btn');
     const clipPushBtn = document.getElementById('clip-push-btn');
+
+    // Screen Peek Elements
+    const screenRefreshBtn = document.getElementById('screen-refresh-btn');
+    const screenAutoToggle = document.getElementById('screen-auto-toggle');
+    const screenStatus = document.getElementById('screen-status');
+    const screenImage = document.getElementById('screen-image');
+    const screenPlaceholder = document.getElementById('screen-placeholder');
     
     // Settings Elements
     const settingsOpen = document.getElementById('settings-open');
@@ -49,6 +56,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let heldModifierUsed = false;
     let modifierHoldTimer = null;
     const modifierHoldThresholdMs = 180;
+    const screenAutoRefreshMs = 2000;
+    let screenAutoInterval = null;
+    let screenCaptureController = null;
+    let screenCaptureInFlight = false;
+    let screenImageUrl = null;
+    let screenLastUpdatedAt = null;
+    let screenStatusError = null;
     const comboKeyNames = {
         9: 'left',
         10: 'right',
@@ -103,6 +117,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (target !== 'view-keyboard') {
                 hiddenInput.blur();
             }
+
+            handleScreenTabChange(target);
         });
     });
 
@@ -133,6 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Start Ping interval for latency check
             startPinger();
+            syncScreenAutoRefresh();
         };
 
         socket.onmessage = (event) => {
@@ -161,6 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
             connStatusText.style.color = 'var(--text-muted)';
             latencyVal.textContent = '-- ms';
             stopPinger();
+            stopScreenAutoRefresh(true);
             
             // Reconnect
             setTimeout(connectSocket, 2000);
@@ -185,6 +203,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isConnected || socket.readyState !== 1) {
                 connectSocket();
             }
+            syncScreenAutoRefresh();
+        } else {
+            stopScreenAutoRefresh(true);
         }
     });
 
@@ -797,6 +818,160 @@ document.addEventListener('DOMContentLoaded', () => {
 
             activateCommand(btn);
         });
+    });
+
+    function isScreenTabActive() {
+        const activeTab = document.querySelector('.nav-item.active');
+        return activeTab && activeTab.getAttribute('data-target') === 'view-screen';
+    }
+
+    function setScreenStatus(message, isError = false) {
+        if (!screenStatus) return;
+        screenStatus.textContent = message;
+        screenStatus.classList.toggle('error', isError);
+    }
+
+    function renderScreenAge() {
+        if (!screenLastUpdatedAt || screenCaptureInFlight || screenStatusError) return;
+
+        const elapsedSeconds = Math.max(0, Math.floor((Date.now() - screenLastUpdatedAt) / 1000));
+        setScreenStatus(elapsedSeconds < 2 ? 'Updated just now' : `Updated ${elapsedSeconds}s ago`);
+    }
+
+    function stopScreenAutoRefresh(abortCapture = false) {
+        if (screenAutoInterval) {
+            clearInterval(screenAutoInterval);
+            screenAutoInterval = null;
+        }
+
+        if (abortCapture && screenCaptureController) {
+            screenCaptureController.abort();
+        }
+    }
+
+    function syncScreenAutoRefresh() {
+        stopScreenAutoRefresh();
+        if (!screenAutoToggle || !screenAutoToggle.checked || !isScreenTabActive() || document.hidden) {
+            return;
+        }
+
+        if (!isConnected) {
+            setScreenStatus('Auto Refresh paused while reconnecting');
+            return;
+        }
+
+        refreshScreenSnapshot();
+        screenAutoInterval = setInterval(refreshScreenSnapshot, screenAutoRefreshMs);
+    }
+
+    function handleScreenTabChange(target) {
+        if (target === 'view-screen') {
+            syncScreenAutoRefresh();
+            return;
+        }
+
+        if (screenAutoToggle) {
+            screenAutoToggle.checked = false;
+        }
+        stopScreenAutoRefresh(true);
+    }
+
+    async function refreshScreenSnapshot() {
+        if (screenCaptureInFlight || document.hidden) return;
+
+        const controller = new AbortController();
+        screenCaptureController = controller;
+        screenCaptureInFlight = true;
+        screenStatusError = null;
+        screenRefreshBtn.disabled = true;
+        setScreenStatus('Capturing...');
+
+        let nextImageUrl = null;
+        try {
+            const response = await fetch(`/api/screen/snapshot?t=${Date.now()}`, {
+                cache: 'no-store',
+                signal: controller.signal
+            });
+
+            if (!response.ok) {
+                let message = `Capture failed (${response.status})`;
+                try {
+                    const payload = await response.json();
+                    if (payload && payload.error) message = payload.error;
+                } catch (err) {
+                    // Keep the HTTP status fallback when the response is not JSON.
+                }
+                throw new Error(message);
+            }
+
+            const blob = await response.blob();
+            if (!blob.type.startsWith('image/')) {
+                throw new Error('The server returned an invalid screenshot.');
+            }
+
+            nextImageUrl = URL.createObjectURL(blob);
+            await new Promise((resolve, reject) => {
+                const probe = new Image();
+                probe.onload = resolve;
+                probe.onerror = () => reject(new Error('The screenshot could not be displayed.'));
+                probe.src = nextImageUrl;
+            });
+
+            const previousImageUrl = screenImageUrl;
+            screenImageUrl = nextImageUrl;
+            nextImageUrl = null;
+            screenImage.src = screenImageUrl;
+            screenImage.hidden = false;
+            screenPlaceholder.hidden = true;
+            screenLastUpdatedAt = Date.now();
+            if (previousImageUrl) URL.revokeObjectURL(previousImageUrl);
+        } catch (err) {
+            if (nextImageUrl) URL.revokeObjectURL(nextImageUrl);
+            if (err.name === 'AbortError') {
+                screenStatusError = null;
+                if (screenLastUpdatedAt) {
+                    renderScreenAge();
+                } else {
+                    setScreenStatus('Ready');
+                }
+            } else {
+                screenStatusError = err.message;
+                setScreenStatus(`Failed: ${err.message}`, true);
+            }
+        } finally {
+            if (screenCaptureController === controller) {
+                screenCaptureController = null;
+            }
+            screenCaptureInFlight = false;
+            screenRefreshBtn.disabled = false;
+            renderScreenAge();
+        }
+    }
+
+    if (screenRefreshBtn) {
+        screenRefreshBtn.addEventListener('click', refreshScreenSnapshot);
+    }
+
+    if (screenAutoToggle) {
+        screenAutoToggle.addEventListener('change', () => {
+            if (screenAutoToggle.checked) {
+                syncScreenAutoRefresh();
+            } else {
+                stopScreenAutoRefresh(true);
+                screenStatusError = null;
+                if (screenLastUpdatedAt) {
+                    renderScreenAge();
+                } else {
+                    setScreenStatus('Ready');
+                }
+            }
+        });
+    }
+
+    setInterval(renderScreenAge, 1000);
+    window.addEventListener('beforeunload', () => {
+        stopScreenAutoRefresh(true);
+        if (screenImageUrl) URL.revokeObjectURL(screenImageUrl);
     });
 
     // ==========================================
