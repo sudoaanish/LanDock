@@ -1315,11 +1315,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const uploadCancelBtn = document.getElementById('upload-cancel-btn');
     const mobileSentFiles = document.getElementById('mobile-sent-files');
     const mobileReceivedFiles = document.getElementById('mobile-received-files');
+    const imageOptimizationModes = document.querySelectorAll('[data-image-mode]');
 
     const sentFilesStorageKey = 'landockSentFilesV1';
     const maxSentFiles = 20;
+    const imageOptimizationMaxEdge = 1920;
+    const imageOptimizationQuality = 0.82;
+    const imageOptimizationMaxInputBytes = 40 * 1024 * 1024;
+    const imageOptimizationMaxPixels = 40 * 1000 * 1000;
     let sentFiles = loadSentFiles();
     let activeUploadXhr = null;
+    let activeUploadToken = 0;
+    let activeSentFileId = null;
+    let imageOptimizationMode = 'original';
 
     function loadSentFiles() {
         try {
@@ -1328,14 +1336,27 @@ document.addEventListener('DOMContentLoaded', () => {
             return stored
                 .filter(item => item && typeof item.name === 'string' && Number.isFinite(item.size))
                 .slice(0, maxSentFiles)
-                .map(item => ({
-                    id: String(item.id || `${item.timestamp}-${item.name}`),
-                    name: item.name,
-                    size: item.size,
-                    status: item.status === 'sent' ? 'sent' : 'failed',
-                    progress: item.status === 'sent' ? 100 : 0,
-                    timestamp: Number.isFinite(item.timestamp) ? item.timestamp : Date.now()
-                }));
+                .map(item => {
+                    const originalSize = Number.isFinite(item.originalSize) ? item.originalSize : item.size;
+                    const uploadedSize = Number.isFinite(item.uploadedSize) ? item.uploadedSize : item.size;
+                    const optimizationStatus = ['optimized', 'fallback'].includes(item.optimizationStatus)
+                        ? item.optimizationStatus
+                        : 'original';
+                    return {
+                        id: String(item.id || `${item.timestamp}-${item.name}`),
+                        name: item.name,
+                        size: uploadedSize,
+                        originalName: item.originalName || item.name,
+                        uploadedName: item.uploadedName || item.name,
+                        originalSize,
+                        uploadedSize,
+                        optimizationStatus,
+                        optimizationNote: typeof item.optimizationNote === 'string' ? item.optimizationNote : '',
+                        status: item.status === 'sent' ? 'sent' : 'failed',
+                        progress: item.status === 'sent' ? 100 : 0,
+                        timestamp: Number.isFinite(item.timestamp) ? item.timestamp : Date.now()
+                    };
+                });
         } catch (err) {
             console.warn('Unable to restore sent file history:', err.message);
             return [];
@@ -1378,15 +1399,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const name = document.createElement('div');
             name.className = 'sent-file-name';
-            name.textContent = item.name;
+            name.textContent = item.uploadedName || item.name;
+            if (item.originalName && item.originalName !== item.uploadedName) {
+                name.title = `Original: ${item.originalName}`;
+            }
 
             const meta = document.createElement('div');
             meta.className = 'sent-file-meta';
-            meta.textContent = `${formatBytes(item.size)} · ${formatRelativeTime(item.timestamp)}`;
+            const originalSize = Number.isFinite(item.originalSize) ? item.originalSize : item.size;
+            const uploadedSize = Number.isFinite(item.uploadedSize) ? item.uploadedSize : item.size;
+            const metaParts = [];
+            if (item.optimizationStatus === 'optimized') {
+                metaParts.push(`${formatBytes(originalSize)} \u2192 ${formatBytes(uploadedSize)}`);
+                metaParts.push('Optimized');
+            } else if (item.optimizationStatus === 'pending') {
+                metaParts.push(formatBytes(originalSize));
+                metaParts.push('Optimization requested');
+            } else {
+                metaParts.push(formatBytes(uploadedSize));
+                metaParts.push('Original');
+                if (item.optimizationStatus === 'fallback') {
+                    metaParts.push(item.optimizationNote || 'optimization unavailable');
+                }
+            }
+            metaParts.push(formatRelativeTime(item.timestamp));
+            meta.textContent = metaParts.join(' \u00b7 ');
 
             const status = document.createElement('div');
-            status.className = `sent-file-status${item.status === 'failed' ? ' failed' : ''}`;
-            status.textContent = item.status === 'uploading'
+            const statusClass = item.status === 'failed'
+                ? ' failed'
+                : item.status === 'preparing' ? ' preparing' : '';
+            status.className = `sent-file-status${statusClass}`;
+            status.textContent = item.status === 'preparing'
+                ? 'Preparing'
+                : item.status === 'uploading'
                 ? `Uploading ${item.progress || 0}%`
                 : item.status === 'sent' ? 'Sent' : 'Failed';
 
@@ -1396,12 +1442,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function addSentFile(file) {
+    function addSentFile(file, requestedMode) {
         const item = {
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             name: file.name,
             size: file.size,
-            status: 'uploading',
+            originalName: file.name,
+            uploadedName: file.name,
+            originalSize: file.size,
+            uploadedSize: file.size,
+            optimizationStatus: requestedMode === 'optimized' ? 'pending' : 'original',
+            optimizationNote: '',
+            status: 'preparing',
             progress: 0,
             timestamp: Date.now()
         };
@@ -1422,6 +1474,151 @@ document.addEventListener('DOMContentLoaded', () => {
         renderSentFiles();
     }
 
+    function setImageOptimizationMode(mode) {
+        imageOptimizationMode = mode === 'optimized' ? 'optimized' : 'original';
+        imageOptimizationModes.forEach(button => {
+            const isActive = button.dataset.imageMode === imageOptimizationMode;
+            button.classList.toggle('active', isActive);
+            button.setAttribute('aria-pressed', String(isActive));
+        });
+    }
+
+    imageOptimizationModes.forEach(button => {
+        button.addEventListener('click', () => setImageOptimizationMode(button.dataset.imageMode));
+    });
+
+    function isOptimizableImage(file) {
+        const extension = (file.name.split('.').pop() || '').toLowerCase();
+        const mimeType = (file.type || '').toLowerCase();
+        const isJpeg = mimeType === 'image/jpeg' || extension === 'jpg' || extension === 'jpeg';
+        const isHeic = mimeType === 'image/heic'
+            || mimeType === 'image/heif'
+            || extension === 'heic'
+            || extension === 'heif';
+        return isJpeg || isHeic;
+    }
+
+    function optimizedImageName(filename) {
+        const lastDot = filename.lastIndexOf('.');
+        const basename = lastDot > 0 ? filename.slice(0, lastDot) : filename;
+        return `${basename}.optimized.jpg`;
+    }
+
+    async function decodeImage(file) {
+        if (typeof createImageBitmap === 'function') {
+            try {
+                const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+                return {
+                    source: bitmap,
+                    width: bitmap.width,
+                    height: bitmap.height,
+                    cleanup: () => bitmap.close()
+                };
+            } catch (err) {
+                // Safari support varies by source format; fall through to an Image element.
+            }
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+        const image = new Image();
+        try {
+            await new Promise((resolve, reject) => {
+                image.onload = resolve;
+                image.onerror = () => reject(new Error('This image format could not be decoded'));
+                image.src = objectUrl;
+            });
+            return {
+                source: image,
+                width: image.naturalWidth,
+                height: image.naturalHeight,
+                cleanup: () => URL.revokeObjectURL(objectUrl)
+            };
+        } catch (err) {
+            URL.revokeObjectURL(objectUrl);
+            throw err;
+        }
+    }
+
+    function canvasToJpeg(canvas) {
+        return new Promise((resolve, reject) => {
+            canvas.toBlob(blob => {
+                if (blob) resolve(blob);
+                else reject(new Error('The browser could not encode this image'));
+            }, 'image/jpeg', imageOptimizationQuality);
+        });
+    }
+
+    async function prepareFileForUpload(file, mode) {
+        const originalResult = {
+            file,
+            uploadedName: file.name,
+            uploadedSize: file.size,
+            optimizationStatus: 'original',
+            optimizationNote: ''
+        };
+
+        if (mode !== 'optimized' || !isOptimizableImage(file)) return originalResult;
+        if (file.size > imageOptimizationMaxInputBytes) {
+            return {
+                ...originalResult,
+                optimizationStatus: 'fallback',
+                optimizationNote: 'too large to optimize safely'
+            };
+        }
+
+        let decodedImage;
+        let canvas;
+        try {
+            decodedImage = await decodeImage(file);
+            const sourcePixels = decodedImage.width * decodedImage.height;
+            if (!decodedImage.width || !decodedImage.height || sourcePixels > imageOptimizationMaxPixels) {
+                throw new Error('Image dimensions exceed the safe optimization limit');
+            }
+
+            const scale = Math.min(1, imageOptimizationMaxEdge / Math.max(decodedImage.width, decodedImage.height));
+            const outputWidth = Math.max(1, Math.round(decodedImage.width * scale));
+            const outputHeight = Math.max(1, Math.round(decodedImage.height * scale));
+
+            canvas = document.createElement('canvas');
+            canvas.width = outputWidth;
+            canvas.height = outputHeight;
+            const context = canvas.getContext('2d', { alpha: false });
+            if (!context) throw new Error('Canvas is unavailable');
+            context.imageSmoothingEnabled = true;
+            context.imageSmoothingQuality = 'high';
+            context.drawImage(decodedImage.source, 0, 0, outputWidth, outputHeight);
+
+            const optimizedBlob = await canvasToJpeg(canvas);
+            if (optimizedBlob.size >= file.size) {
+                return {
+                    ...originalResult,
+                    optimizationStatus: 'fallback',
+                    optimizationNote: 'original was already smaller'
+                };
+            }
+
+            return {
+                file: optimizedBlob,
+                uploadedName: optimizedImageName(file.name),
+                uploadedSize: optimizedBlob.size,
+                optimizationStatus: 'optimized',
+                optimizationNote: ''
+            };
+        } catch (err) {
+            return {
+                ...originalResult,
+                optimizationStatus: 'fallback',
+                optimizationNote: 'optimization unavailable'
+            };
+        } finally {
+            if (decodedImage) decodedImage.cleanup();
+            if (canvas) {
+                canvas.width = 1;
+                canvas.height = 1;
+            }
+        }
+    }
+
     if (fileDropzone) {
         fileDropzone.addEventListener('click', () => {
             mobileFileInput.click();
@@ -1437,22 +1634,45 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function uploadFile(file) {
+    async function uploadFile(file) {
+        const uploadToken = ++activeUploadToken;
+        const requestedMode = imageOptimizationMode;
         if (activeUploadXhr) activeUploadXhr.abort();
 
-        const formData = new FormData();
-        formData.append('file', file);
+        const sentFileId = addSentFile(file, requestedMode);
+        activeSentFileId = sentFileId;
 
-        const sentFileId = addSentFile(file);
-        const uploadXhr = new XMLHttpRequest();
-        activeUploadXhr = uploadXhr;
-        
-        // Show progress UI
         uploadFilename.textContent = file.name;
-        uploadProgressPercent.textContent = '0%';
+        uploadProgressPercent.textContent = requestedMode === 'optimized' ? 'Preparing...' : 'Preparing';
         uploadProgressPercent.style.color = '';
         uploadStatusCard.dataset.uploadId = sentFileId;
         uploadStatusCard.style.display = 'flex';
+
+        const prepared = await prepareFileForUpload(file, requestedMode);
+        if (uploadToken !== activeUploadToken) {
+            updateSentFile(sentFileId, { status: 'failed', timestamp: Date.now() });
+            return;
+        }
+
+        updateSentFile(sentFileId, {
+            name: prepared.uploadedName,
+            uploadedName: prepared.uploadedName,
+            size: prepared.uploadedSize,
+            uploadedSize: prepared.uploadedSize,
+            optimizationStatus: prepared.optimizationStatus,
+            optimizationNote: prepared.optimizationNote,
+            status: 'uploading',
+            progress: 0
+        });
+
+        const formData = new FormData();
+        formData.append('file', prepared.file, prepared.uploadedName);
+
+        const uploadXhr = new XMLHttpRequest();
+        activeUploadXhr = uploadXhr;
+
+        uploadFilename.textContent = prepared.uploadedName;
+        uploadProgressPercent.textContent = '0%';
 
         uploadXhr.upload.onprogress = (event) => {
             if (event.lengthComputable) {
@@ -1464,7 +1684,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         uploadXhr.onload = () => {
             if (uploadXhr.status >= 200 && uploadXhr.status < 300) {
-                let savedName = file.name;
+                let savedName = prepared.uploadedName;
                 try {
                     const response = JSON.parse(uploadXhr.responseText);
                     if (typeof response.name === 'string' && response.name) savedName = response.name;
@@ -1473,16 +1693,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 updateSentFile(sentFileId, {
                     name: savedName,
+                    uploadedName: savedName,
                     status: 'sent',
                     progress: 100,
                     timestamp: Date.now()
                 });
                 mobileFileInput.value = '';
-                uploadStatusCard.style.display = 'none';
+                if (uploadStatusCard.dataset.uploadId === sentFileId) {
+                    uploadStatusCard.style.display = 'none';
+                }
             } else {
                 updateSentFile(sentFileId, { status: 'failed', timestamp: Date.now() });
                 uploadProgressPercent.textContent = 'Failed';
                 uploadProgressPercent.style.color = '#ef4444';
+                mobileFileInput.value = '';
                 setTimeout(() => {
                     if (!activeUploadXhr && uploadStatusCard.dataset.uploadId === sentFileId) {
                         uploadStatusCard.style.display = 'none';
@@ -1491,6 +1715,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 2000);
             }
             if (activeUploadXhr === uploadXhr) activeUploadXhr = null;
+            if (activeSentFileId === sentFileId) activeSentFileId = null;
         };
 
         uploadXhr.onerror = () => {
@@ -1498,6 +1723,8 @@ document.addEventListener('DOMContentLoaded', () => {
             uploadProgressPercent.textContent = 'Failed';
             uploadProgressPercent.style.color = '#ef4444';
             if (activeUploadXhr === uploadXhr) activeUploadXhr = null;
+            if (activeSentFileId === sentFileId) activeSentFileId = null;
+            mobileFileInput.value = '';
             setTimeout(() => {
                 if (!activeUploadXhr && uploadStatusCard.dataset.uploadId === sentFileId) {
                     uploadStatusCard.style.display = 'none';
@@ -1508,8 +1735,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         uploadXhr.onabort = () => {
             updateSentFile(sentFileId, { status: 'failed', timestamp: Date.now() });
-            uploadStatusCard.style.display = 'none';
+            if (uploadStatusCard.dataset.uploadId === sentFileId) {
+                uploadStatusCard.style.display = 'none';
+            }
             if (activeUploadXhr === uploadXhr) activeUploadXhr = null;
+            if (activeSentFileId === sentFileId) activeSentFileId = null;
+            mobileFileInput.value = '';
         };
 
         uploadXhr.open('POST', '/api/upload', true);
@@ -1518,8 +1749,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (uploadCancelBtn) {
         uploadCancelBtn.addEventListener('click', () => {
+            activeUploadToken += 1;
             if (activeUploadXhr) {
                 activeUploadXhr.abort();
+            } else if (activeSentFileId) {
+                updateSentFile(activeSentFileId, { status: 'failed', timestamp: Date.now() });
+                activeSentFileId = null;
+                uploadStatusCard.style.display = 'none';
+                mobileFileInput.value = '';
             }
         });
     }

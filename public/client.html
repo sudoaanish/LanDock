@@ -867,13 +867,79 @@
 
         /* Files Tab */
         .files-view {
+            gap: 10px;
+        }
+
+        .file-dropzone {
+            min-height: 124px;
+            padding: 18px !important;
+        }
+
+        .file-dropzone svg {
+            width: 40px;
+            height: 40px;
+            margin-bottom: 10px !important;
+        }
+
+        .image-optimization-card {
+            display: flex;
+            flex: 0 0 auto;
+            flex-direction: column;
+            gap: 7px;
+            padding: 10px 12px;
+        }
+
+        .image-optimization-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             gap: 12px;
+        }
+
+        .image-optimization-title {
+            color: var(--text-main);
+            font-size: 12px;
+            font-weight: 650;
+        }
+
+        .image-optimization-modes {
+            display: grid;
+            width: 154px;
+            grid-template-columns: 1fr 1fr;
+            padding: 2px;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 7px;
+            background: rgba(0, 0, 0, 0.18);
+        }
+
+        .image-optimization-mode {
+            min-height: 28px;
+            padding: 4px 8px;
+            border: none;
+            border-radius: 5px;
+            background: transparent;
+            box-shadow: none;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 650;
+        }
+
+        .image-optimization-mode.active {
+            background: rgba(147, 51, 234, 0.2);
+            box-shadow: inset 0 0 0 1px rgba(168, 85, 247, 0.35);
+            color: var(--text-main);
+        }
+
+        .image-optimization-help {
+            color: var(--text-muted);
+            font-size: 10px;
+            line-height: 1.35;
         }
 
         .file-list-card {
             display: flex;
-            flex: 0 0 132px;
-            min-height: 120px;
+            flex: 0 0 116px;
+            min-height: 106px;
             flex-direction: column;
             padding: 14px 16px;
         }
@@ -946,6 +1012,10 @@
 
         .sent-file-status.failed {
             color: #fca5a5;
+        }
+
+        .sent-file-status.preparing {
+            color: #fbbf24;
         }
     </style>
 </head>
@@ -1063,12 +1133,23 @@
 
         <!-- View 4: Files Share -->
         <div id="view-files" class="view-panel files-view">
-            <div id="file-dropzone" class="glass-card" style="flex-grow: 1; border: 2px dashed rgba(255,255,255,0.08); border-radius: 16px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: var(--text-muted); cursor: pointer; padding: 24px; background: radial-gradient(circle at center, rgba(147, 51, 234, 0.02) 0%, transparent 80%); transition: all 0.3s ease;">
+            <div id="file-dropzone" class="glass-card file-dropzone" style="flex-grow: 1; border: 2px dashed rgba(255,255,255,0.08); border-radius: 16px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: var(--text-muted); cursor: pointer; background: radial-gradient(circle at center, rgba(147, 51, 234, 0.02) 0%, transparent 80%); transition: all 0.3s ease;">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent); margin-bottom: 16px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 <p style="font-weight: 600; color: var(--text-main); margin-bottom: 8px;">Upload Images / Files</p>
                 <p style="font-size: 12px; max-width: 220px; line-height: 1.4;">Tap to choose photo, video, or files to send to PC</p>
                 <input type="file" id="mobile-file-input" style="display: none;" accept="*">
             </div>
+
+            <section class="glass-card image-optimization-card" aria-labelledby="image-optimization-title">
+                <div class="image-optimization-header">
+                    <span id="image-optimization-title" class="image-optimization-title">Image Optimization</span>
+                    <div class="image-optimization-modes" role="group" aria-label="Image optimization mode">
+                        <button class="image-optimization-mode active" type="button" data-image-mode="original" aria-pressed="true">Original</button>
+                        <button class="image-optimization-mode" type="button" data-image-mode="optimized" aria-pressed="false">Optimized</button>
+                    </div>
+                </div>
+                <p class="image-optimization-help">JPEG/HEIC photos are resized/compressed when supported. Other files stay original; originals stay on your phone.</p>
+            </section>
 
             <!-- Upload progress / file status overlay -->
             <div id="upload-status-card" class="glass-card" style="display: none; align-items: center; justify-content: space-between; padding: 12px 16px;">
