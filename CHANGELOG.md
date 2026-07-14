@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.2.3 - Reliability hotfix
+
+- Prevented repeated iPhone uploads from overwriting existing received files.
+- Added duplicate-safe filename allocation for received uploads using readable suffixes such as `image.optimized-2.jpg`.
+- Applied the same collision protection to Shared From PC saved files.
+- Returned the final saved filename to the iPhone client so Sent to PC history reflects the actual saved file.
+- Improved iPhone Home Screen PWA recovery after background, focus, visibility, online, and offline lifecycle changes.
+- Added safer WebSocket heartbeat/reconnect handling for stale or half-open sessions.
+- Centralized client WebSocket sending so disconnected Trackpad, Keyboard, command, and Clipboard messages are not silently treated as delivered.
+- Fixed Trackpad resume state after iOS suspension by resetting stale gesture state, cancelling pending movement/drag timers, invalidating stale input callbacks, and treating `touchcancel` as cancellation.
+- Preserved live/no-buffer typing, Typing Preview, modifiers, command layer, Clipboard, Screen Peek, Files, Shared From PC, Settings version display, QR/network behavior, and updater behavior.
+- Updated the README to reflect current LanDock features including Screen Peek, Typing Preview, keyboard command controls, image optimization, Sent to PC history, duplicate-safe filenames, and stale-session recovery.
+
+Notes:
+
+- No dependencies were added.
+- No updater endpoint or signing configuration changed.
+- Root `update.json` remains untouched.
+- No ZIP/archive compression or Squoosh/WASM integration is included.
+
 ## v1.2.2 - Image transfer optimization
 
 - Added Image Optimization controls to the iPhone Files tab.

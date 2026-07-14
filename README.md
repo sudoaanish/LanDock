@@ -6,7 +6,7 @@
 
 ### A Windows desktop hub and iPhone web client for local PC control and file sharing.
 
-LanDock turns your Windows PC into a local Wi-Fi hub for your iPhone. Install the Windows MSI, launch LanDock, scan the QR code, and use your iPhone as a local trackpad, keyboard, clipboard bridge, and file drop client. No App Store app is required.
+LanDock turns your Windows PC into a local Wi-Fi hub for your iPhone. Install the Windows MSI, launch LanDock, scan the QR code, and use your iPhone as a local trackpad, live keyboard, clipboard bridge, Screen Peek viewer, and file/image transfer client. No App Store app is required.
 
 <p>
   <a href="https://github.com/sudoaanish/LanDock/releases/latest">
@@ -39,7 +39,7 @@ LanDock turns your Windows PC into a local Wi-Fi hub for your iPhone. Install th
 
 ---
 
-Version: `1.2.2`
+Version: `1.2.3`
 
 ## Features
 
@@ -53,9 +53,22 @@ Version: `1.2.2`
   - two-finger scroll
   - right/middle click gestures
   - drag/select gestures
-- Keyboard and special key controls.
+  - stale-session recovery after iPhone background/resume
+- Keyboard controls:
+  - live desktop typing from the iPhone keyboard
+  - Typing Preview mirror
+  - Shift/Ctrl modifier controls
+  - safe command buttons for common editing and browser actions
 - Clipboard sync between PC and iPhone client.
-- Local file and image transfer between PC and iPhone.
+- Screen Peek:
+  - lightweight view-only desktop screenshot
+  - manual and optional auto refresh
+  - pinch, pan, and Fit viewer controls
+- Local file and image transfer between PC and iPhone:
+  - Sent to PC history and Shared From PC
+  - duplicate-safe received filenames
+  - optional client-side image optimization with safe original fallback
+- Backend-provided version display in iPhone Settings.
 - Runtime diagnostics for backend startup failures.
 - Dashboard update-check/install control for signed Tauri updater releases.
 
@@ -64,7 +77,7 @@ Version: `1.2.2`
 For normal use, download the Windows MSI from the GitHub Releases page and install it:
 
 ```text
-LanDock_1.2.2_x64_en-US.msi
+LanDock_1.2.3_x64_en-US.msi
 ```
 
 The packaged Windows app includes its own Node.js runtime under the app resources. You do not need to install Node.js to run the MSI build.
@@ -141,7 +154,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_windows.
 The script runs the Tauri release build, verifies the release executable and bundled resources, and produces:
 
 ```text
-src-tauri\target\release\bundle\msi\LanDock_1.2.2_x64_en-US.msi
+src-tauri\target\release\bundle\msi\LanDock_1.2.3_x64_en-US.msi
 ```
 
 On some local Windows environments, WiX `light.exe` can fail during ICE validation because Windows Installer Service validation is unavailable. If the release executable and WiX object were already generated, the script applies the documented local fallback:
