@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const settingsOpen = document.getElementById('settings-open');
     const settingsClose = document.getElementById('settings-close');
     const settingsModal = document.getElementById('settings-modal');
+    const settingsAppVersion = document.getElementById('settings-app-version');
     const toggleNaturalScroll = document.getElementById('setting-natural-scroll');
     const inputSensitivity = document.getElementById('setting-sensitivity');
     const valSensitivity = document.getElementById('sensitivity-val');
@@ -72,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let screenPinchStart = null;
     let screenGestureHadPinch = false;
     let screenLastTap = null;
+    let appInfoLoaded = false;
     const screenPointers = new Map();
     const screenMinScale = 1;
     const screenMaxScale = 4;
@@ -136,8 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Prevent default bounce scrolls in mobile Safari
     document.addEventListener('touchmove', (e) => {
-        // Allow scrolling inside textarea of clipboard
-        if (e.target.id === 'clip-area') return;
+        // Allow scrolling inside content areas designed for touch scrolling.
+        if (e.target.id === 'clip-area' || e.target.closest?.('.files-scroll')) return;
         e.preventDefault();
     }, { passive: false });
 
@@ -1250,8 +1252,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // 5. SETTINGS OVERLAY CONTROLS
     // ==========================================
+    async function loadAppInfo() {
+        if (!settingsAppVersion || appInfoLoaded) return;
+
+        try {
+            const response = await fetch('/api/app-info', { cache: 'no-store' });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const appInfo = await response.json();
+            if (typeof appInfo.version !== 'string' || !appInfo.version.trim()) {
+                throw new Error('Missing version');
+            }
+            settingsAppVersion.textContent = `LanDock v${appInfo.version}`;
+            appInfoLoaded = true;
+        } catch (err) {
+            settingsAppVersion.textContent = 'LanDock version unavailable';
+            console.warn('Unable to load LanDock app info:', err.message);
+        }
+    }
+
     settingsOpen.addEventListener('click', () => {
         settingsModal.classList.add('active');
+        loadAppInfo();
     });
 
     settingsClose.addEventListener('click', () => {
@@ -1281,6 +1302,8 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('scrollSensitivity', scrollSensitivity);
     });
 
+    loadAppInfo();
+
     // ==========================================
     // 6. IMAGE & FILE SHARING LOGIC
     // ==========================================
@@ -1290,9 +1313,114 @@ document.addEventListener('DOMContentLoaded', () => {
     const uploadFilename = document.getElementById('upload-filename');
     const uploadProgressPercent = document.getElementById('upload-progress-percent');
     const uploadCancelBtn = document.getElementById('upload-cancel-btn');
+    const mobileSentFiles = document.getElementById('mobile-sent-files');
     const mobileReceivedFiles = document.getElementById('mobile-received-files');
 
+    const sentFilesStorageKey = 'landockSentFilesV1';
+    const maxSentFiles = 20;
+    let sentFiles = loadSentFiles();
     let activeUploadXhr = null;
+
+    function loadSentFiles() {
+        try {
+            const stored = JSON.parse(localStorage.getItem(sentFilesStorageKey) || '[]');
+            if (!Array.isArray(stored)) return [];
+            return stored
+                .filter(item => item && typeof item.name === 'string' && Number.isFinite(item.size))
+                .slice(0, maxSentFiles)
+                .map(item => ({
+                    id: String(item.id || `${item.timestamp}-${item.name}`),
+                    name: item.name,
+                    size: item.size,
+                    status: item.status === 'sent' ? 'sent' : 'failed',
+                    progress: item.status === 'sent' ? 100 : 0,
+                    timestamp: Number.isFinite(item.timestamp) ? item.timestamp : Date.now()
+                }));
+        } catch (err) {
+            console.warn('Unable to restore sent file history:', err.message);
+            return [];
+        }
+    }
+
+    function persistSentFiles() {
+        try {
+            localStorage.setItem(sentFilesStorageKey, JSON.stringify(sentFiles.slice(0, maxSentFiles)));
+        } catch (err) {
+            console.warn('Unable to save sent file history:', err.message);
+        }
+    }
+
+    function formatRelativeTime(timestamp) {
+        const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+        if (elapsedSeconds < 60) return 'just now';
+        if (elapsedSeconds < 3600) return `${Math.floor(elapsedSeconds / 60)}m ago`;
+        return new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function renderSentFiles() {
+        if (!mobileSentFiles) return;
+        mobileSentFiles.innerHTML = '';
+
+        if (sentFiles.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'file-empty-state';
+            empty.textContent = 'No files sent yet';
+            mobileSentFiles.appendChild(empty);
+            return;
+        }
+
+        sentFiles.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'sent-file-row';
+
+            const copy = document.createElement('div');
+            copy.className = 'sent-file-copy';
+
+            const name = document.createElement('div');
+            name.className = 'sent-file-name';
+            name.textContent = item.name;
+
+            const meta = document.createElement('div');
+            meta.className = 'sent-file-meta';
+            meta.textContent = `${formatBytes(item.size)} · ${formatRelativeTime(item.timestamp)}`;
+
+            const status = document.createElement('div');
+            status.className = `sent-file-status${item.status === 'failed' ? ' failed' : ''}`;
+            status.textContent = item.status === 'uploading'
+                ? `Uploading ${item.progress || 0}%`
+                : item.status === 'sent' ? 'Sent' : 'Failed';
+
+            copy.append(name, meta);
+            row.append(copy, status);
+            mobileSentFiles.appendChild(row);
+        });
+    }
+
+    function addSentFile(file) {
+        const item = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            name: file.name,
+            size: file.size,
+            status: 'uploading',
+            progress: 0,
+            timestamp: Date.now()
+        };
+        sentFiles.unshift(item);
+        sentFiles = sentFiles.slice(0, maxSentFiles);
+        persistSentFiles();
+        renderSentFiles();
+        return item.id;
+    }
+
+    function updateSentFile(id, updates, shouldPersist = true) {
+        const item = sentFiles.find(entry => entry.id === id);
+        if (!item) return;
+        const changed = Object.entries(updates).some(([key, value]) => item[key] !== value);
+        if (!changed) return;
+        Object.assign(item, updates);
+        if (shouldPersist) persistSentFiles();
+        renderSentFiles();
+    }
 
     if (fileDropzone) {
         fileDropzone.addEventListener('click', () => {
@@ -1310,48 +1438,82 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function uploadFile(file) {
+        if (activeUploadXhr) activeUploadXhr.abort();
+
         const formData = new FormData();
         formData.append('file', file);
 
-        activeUploadXhr = new XMLHttpRequest();
+        const sentFileId = addSentFile(file);
+        const uploadXhr = new XMLHttpRequest();
+        activeUploadXhr = uploadXhr;
         
         // Show progress UI
         uploadFilename.textContent = file.name;
         uploadProgressPercent.textContent = '0%';
+        uploadProgressPercent.style.color = '';
+        uploadStatusCard.dataset.uploadId = sentFileId;
         uploadStatusCard.style.display = 'flex';
 
-        activeUploadXhr.upload.onprogress = (event) => {
+        uploadXhr.upload.onprogress = (event) => {
             if (event.lengthComputable) {
                 const percent = Math.round((event.loaded / event.total) * 100);
                 uploadProgressPercent.textContent = `${percent}%`;
+                updateSentFile(sentFileId, { progress: percent }, false);
             }
         };
 
-        activeUploadXhr.onload = () => {
-            uploadStatusCard.style.display = 'none';
-            if (activeUploadXhr && activeUploadXhr.status === 200) {
+        uploadXhr.onload = () => {
+            if (uploadXhr.status >= 200 && uploadXhr.status < 300) {
+                let savedName = file.name;
+                try {
+                    const response = JSON.parse(uploadXhr.responseText);
+                    if (typeof response.name === 'string' && response.name) savedName = response.name;
+                } catch (err) {
+                    // The upload succeeded; retaining the local filename is sufficient.
+                }
+                updateSentFile(sentFileId, {
+                    name: savedName,
+                    status: 'sent',
+                    progress: 100,
+                    timestamp: Date.now()
+                });
                 mobileFileInput.value = '';
+                uploadStatusCard.style.display = 'none';
+            } else {
+                updateSentFile(sentFileId, { status: 'failed', timestamp: Date.now() });
+                uploadProgressPercent.textContent = 'Failed';
+                uploadProgressPercent.style.color = '#ef4444';
+                setTimeout(() => {
+                    if (!activeUploadXhr && uploadStatusCard.dataset.uploadId === sentFileId) {
+                        uploadStatusCard.style.display = 'none';
+                        uploadProgressPercent.style.color = '';
+                    }
+                }, 2000);
             }
-            activeUploadXhr = null;
+            if (activeUploadXhr === uploadXhr) activeUploadXhr = null;
         };
 
-        activeUploadXhr.onerror = () => {
+        uploadXhr.onerror = () => {
+            updateSentFile(sentFileId, { status: 'failed', timestamp: Date.now() });
             uploadProgressPercent.textContent = 'Failed';
             uploadProgressPercent.style.color = '#ef4444';
-            activeUploadXhr = null;
+            if (activeUploadXhr === uploadXhr) activeUploadXhr = null;
             setTimeout(() => {
-                uploadStatusCard.style.display = 'none';
-                uploadProgressPercent.style.color = '';
+                if (!activeUploadXhr && uploadStatusCard.dataset.uploadId === sentFileId) {
+                    uploadStatusCard.style.display = 'none';
+                    uploadProgressPercent.style.color = '';
+                }
             }, 2000);
         };
 
-        activeUploadXhr.onabort = () => {
+        uploadXhr.onabort = () => {
+            updateSentFile(sentFileId, { status: 'failed', timestamp: Date.now() });
             uploadStatusCard.style.display = 'none';
-            activeUploadXhr = null;
+            if (activeUploadXhr === uploadXhr) activeUploadXhr = null;
         };
 
-        activeUploadXhr.open('POST', `/api/upload`, true);
-        activeUploadXhr.send(formData);
+        uploadXhr.open('POST', '/api/upload', true);
+        uploadXhr.send(formData);
     }
 
     if (uploadCancelBtn) {
@@ -1435,6 +1597,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     }
+
+    renderSentFiles();
 
     // Initialize Connection on Load
     connectSocket();

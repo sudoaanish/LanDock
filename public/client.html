@@ -858,6 +858,95 @@
             color: var(--text-muted);
             opacity: 0.72;
         }
+
+        .settings-app-version {
+            margin-bottom: 2px;
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        /* Files Tab */
+        .files-view {
+            gap: 12px;
+        }
+
+        .file-list-card {
+            display: flex;
+            flex: 0 0 132px;
+            min-height: 120px;
+            flex-direction: column;
+            padding: 14px 16px;
+        }
+
+        .file-section-title {
+            margin-bottom: 8px;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .files-scroll {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            flex-direction: column;
+            gap: 6px;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .file-empty-state {
+            margin-top: 22px;
+            color: var(--text-muted);
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .sent-file-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 2px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .sent-file-row:last-child {
+            border-bottom: none;
+        }
+
+        .sent-file-copy {
+            min-width: 0;
+        }
+
+        .sent-file-name {
+            overflow: hidden;
+            color: var(--text-main);
+            font-size: 12px;
+            font-weight: 550;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .sent-file-meta {
+            margin-top: 3px;
+            color: var(--text-muted);
+            font-size: 10px;
+        }
+
+        .sent-file-status {
+            flex-shrink: 0;
+            color: var(--accent);
+            font-size: 10px;
+            font-weight: 650;
+        }
+
+        .sent-file-status.failed {
+            color: #fca5a5;
+        }
     </style>
 </head>
 <body class="fade-in">
@@ -973,7 +1062,7 @@
         </div>
 
         <!-- View 4: Files Share -->
-        <div id="view-files" class="view-panel files-view" style="gap: 16px;">
+        <div id="view-files" class="view-panel files-view">
             <div id="file-dropzone" class="glass-card" style="flex-grow: 1; border: 2px dashed rgba(255,255,255,0.08); border-radius: 16px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: var(--text-muted); cursor: pointer; padding: 24px; background: radial-gradient(circle at center, rgba(147, 51, 234, 0.02) 0%, transparent 80%); transition: all 0.3s ease;">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent); margin-bottom: 16px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 <p style="font-weight: 600; color: var(--text-main); margin-bottom: 8px;">Upload Images / Files</p>
@@ -992,11 +1081,19 @@
                 </div>
             </div>
 
+            <!-- Recent iPhone-to-PC upload state -->
+            <div class="glass-card file-list-card">
+                <div class="file-section-title">Sent to PC</div>
+                <div id="mobile-sent-files" class="files-scroll">
+                    <div class="file-empty-state">No files sent yet</div>
+                </div>
+            </div>
+
             <!-- Received files list -->
-            <div class="glass-card" style="display: flex; flex-direction: column; height: 160px; min-height: 160px; padding: 16px;">
-                <div style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Shared from PC</div>
-                <div id="mobile-received-files" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
-                    <div style="font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 30px;">No files shared yet</div>
+            <div class="glass-card file-list-card">
+                <div class="file-section-title">Shared from PC</div>
+                <div id="mobile-received-files" class="files-scroll">
+                    <div class="file-empty-state">No files shared yet</div>
                 </div>
             </div>
         </div>
@@ -1092,7 +1189,10 @@
                 <input type="range" id="setting-scroll-sens" class="range-input" min="0.4" max="2.0" step="0.1" value="1.0">
             </div>
 
-            <div class="settings-attribution">Developed by Aanish Farrukh (sudoaanish)</div>
+            <div class="settings-attribution">
+                <div id="settings-app-version" class="settings-app-version">LanDock version unavailable</div>
+                <div>Developed by Aanish Farrukh (sudoaanish)</div>
+            </div>
         </div>
     </div>
 

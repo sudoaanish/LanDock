@@ -9,6 +9,7 @@ const QRCode = require('qrcode');
 const clipboard = require('clipboardy').default;
 const formidable = require('formidable');
 const { exec } = require('child_process');
+const appPackage = require('./package.json');
 
 let screenshot = null;
 try {
@@ -679,6 +680,24 @@ const server = http.createServer((req, res) => {
             res.statusCode = 400;
             res.end(JSON.stringify({ error: 'Missing path' }));
         }
+        return;
+    }
+
+    // Lightweight app metadata for web clients.
+    if (urlPath === '/api/app-info') {
+        if (req.method !== 'GET') {
+            res.statusCode = 405;
+            res.setHeader('Allow', 'GET');
+            res.end();
+            return;
+        }
+
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Cache-Control', 'no-store');
+        res.end(JSON.stringify({
+            name: 'LanDock',
+            version: appPackage.version
+        }));
         return;
     }
 
